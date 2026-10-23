@@ -118,3 +118,16 @@ export function setCameraView(camera: ViewCamera, controls: OrbitControls, box: 
   controls.enableDamping = damping;
   setTiltLocked(controls, view === 'fit' ? tiltLocked : view === 'plan' || view === 'profile');
 }
+
+/** Recenter without changing heading, tilt, projection, or zoom. */
+export function focusModelPoint(camera: ViewCamera, controls: OrbitControls, point: Vector3, walker: boolean) {
+  const offset = camera.position.clone().sub(controls.target);
+  if (walker) {
+    camera.getWorldDirection(offset).negate();
+    offset.multiplyScalar(Math.max(1, camera.near * 2));
+  }
+  controls.target.copy(point);
+  camera.position.copy(point).add(offset);
+  controls.update();
+  camera.updateMatrixWorld();
+}

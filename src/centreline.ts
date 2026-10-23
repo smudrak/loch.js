@@ -57,6 +57,7 @@ export class CentrelineScene {
       geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(positions.length), 3));
       const lines = new THREE.LineSegments(geometry, material);
       lines.name = `Centreline ${flags}`;
+      lines.userData.surface = Boolean(flags & SHOT_SURFACE);
       this.group.add(lines); this.entries.push({ flags, lines });
     }
     if (!this.entries.length) material.dispose();

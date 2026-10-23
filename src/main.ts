@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { initializeAbout } from './about';
-import { createCameraControls, resizeCamera, setCameraView, setPerspective, setTiltLocked, type ViewCamera } from './camera';
+import { createCameraControls, focusModelPoint, resizeCamera, setCameraView, setPerspective, setTiltLocked, type ViewCamera } from './camera';
 import { exceptionMessage, showLoadError, type LoadContext } from './errors';
 import { parseLox, type Model, type Point } from './lox';
 import { initializeMenus } from './menus';
 import { createHeadlight, initializeLightControls } from './lighting';
 import { WalkerControls } from './walker';
+import { pickModelPoint, pickingLineThreshold } from './model-picking';
+import { initializeFocusGesture } from './focus-gesture';
 import { loadWallTexture, setTexturedWalls, wallMaterial } from './wall-material';
 import type { GeometryBatch, LargeModel, LoadProgress } from './large-lox';
 import { largeWallMaterial, LargeScene } from './large-scene';
@@ -97,6 +99,18 @@ function setWalker(enabled: boolean) {
 }
 walkerCheckbox.addEventListener('change', () => setWalker(walkerCheckbox.checked));
 walkerButton.addEventListener('click', () => setWalker(!walker.enabled));
+initializeFocusGesture(canvas, (x, y) => {
+  if (largeWorker || loadingError) return;
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const pointer = new THREE.Vector2((x - rect.left) / rect.width * 2 - 1,
+    1 - (y - rect.top) / rect.height * 2);
+  const point = pickModelPoint(camera, pointer, { walls, centreline: lines, surface: surfaceGroup,
+    fullDetailWalls: largeScene?.geometryBatches() }, pickingLineThreshold(camera, controls.target, rect.height));
+  if (!point) return;
+  focusModelPoint(camera, controls, point, walker.enabled);
+  invalidateView();
+});
 controls.addEventListener('change', invalidateView);
 canvas.addEventListener('webglcontextrestored', invalidateView);
 const lockTilt = document.querySelector<HTMLInputElement>('#lock-tilt')!;

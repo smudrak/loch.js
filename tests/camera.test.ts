@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Box3, PerspectiveCamera, Vector3 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createCameraControls, resizeCamera, setCameraView, setPerspective, setTiltLocked, type ViewCamera } from '../src/camera';
+import { createCameraControls, focusModelPoint, resizeCamera, setCameraView, setPerspective, setTiltLocked, type ViewCamera } from '../src/camera';
 
 class Canvas extends EventTarget {
   style = { touchAction: '' };
@@ -260,6 +260,44 @@ describe('model views', () => {
       expect(Math.abs(projected.y)).toBeLessThan(1);
       expect(Math.abs(projected.z)).toBeLessThan(1);
     }
+    controls.dispose();
+  });
+});
+
+
+describe('focusing on a model point', () => {
+  it.each([false, true])('recenters the orbit pivot without changing orientation, distance or zoom (orthographic %s)', orthographic => {
+    const canvas = new Canvas();
+    let camera: ViewCamera = new PerspectiveCamera(45, 4 / 3, .01, 10000);
+    const controls = createCameraControls(camera, canvas as unknown as HTMLElement);
+    camera = setPerspective(camera, controls, !orthographic);
+    setTiltLocked(controls, true);
+    const rotation = camera.quaternion.clone(), distance = controls.getDistance(), zoom = camera.zoom;
+    const point = new Vector3(12, -8, 4), angle = controls.minPolarAngle;
+    focusModelPoint(camera, controls, point, false);
+    expect(controls.target.distanceTo(point)).toBeLessThan(1e-10);
+    expect(controls.getDistance()).toBeCloseTo(distance);
+    expect(camera.quaternion.angleTo(rotation)).toBeLessThan(1e-7);
+    expect(camera.zoom).toBe(zoom); expect(controls.minPolarAngle).toBe(angle);
+    const projected = point.clone().project(camera);
+    expect(projected.x).toBeCloseTo(0); expect(projected.y).toBeCloseTo(0);
+    controls.update(); expect(controls.getDistance()).toBeCloseTo(distance);
+    controls.dispose();
+  });
+
+  it.each([false, true])('moves Walker close to the chosen point while preserving heading and tilt (orthographic %s)', orthographic => {
+    const canvas = new Canvas();
+    let camera: ViewCamera = new PerspectiveCamera(45, 4 / 3, .01, 10000);
+    const controls = createCameraControls(camera, canvas as unknown as HTMLElement);
+    camera = setPerspective(camera, controls, !orthographic); controls.enabled = false;
+    const rotation = camera.quaternion.clone(), point = new Vector3(100, 200, 30);
+    focusModelPoint(camera, controls, point, true);
+    expect(camera.position.distanceTo(point)).toBeCloseTo(1);
+    expect(controls.target.distanceTo(point)).toBeLessThan(1e-10);
+    expect(camera.quaternion.angleTo(rotation)).toBeLessThan(1e-7);
+    const projected = point.clone().project(camera);
+    expect(projected.x).toBeCloseTo(0); expect(projected.y).toBeCloseTo(0);
+    expect(projected.z).toBeGreaterThan(-1); expect(projected.z).toBeLessThan(1);
     controls.dispose();
   });
 });
