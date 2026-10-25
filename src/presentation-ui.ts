@@ -9,6 +9,7 @@ type Host = { capture(): LxaCamera; walker(): boolean; apply(pose: PresentationP
 export function initializePresentation(host: Host) {
   let document = Presentation.create(), timeline = new PresentationTimeline([], true), filename = 'presentation.lxa', dirty = false, appliedScene = -1;
   const panel = globalThis.document.querySelector<HTMLDialogElement>('#presentation-panel')!;
+  const panelToggle = globalThis.document.querySelector<HTMLButtonElement>('#animation-toggle')!;
   const list = globalThis.document.querySelector<HTMLSelectElement>('#presentation-views')!;
   const loop = globalThis.document.querySelector<HTMLInputElement>('#presentation-loop')!;
   const sceneChanges = globalThis.document.querySelector<HTMLInputElement>('#presentation-scene-changes')!;
@@ -27,6 +28,11 @@ export function initializePresentation(host: Host) {
   }, active => { checkbox.checked = active; play.textContent = active ? 'Stop' : 'Play'; host.playing(active); });
   function refresh() {
     const selected = list.selectedIndex >= 0, ready = host.canPlay();
+    panelToggle.hidden = !timeline.views.length;
+    panelToggle.setAttribute('aria-pressed', String(panel.open));
+    panelToggle.setAttribute('aria-expanded', String(panel.open));
+    panelToggle.title = panel.open ? 'Hide animation' : 'Show animation';
+    panelToggle.setAttribute('aria-label', panelToggle.title);
     play.disabled = checkbox.disabled = !ready || !timeline.views.length;
     for (const id of ['mark', 'update']) globalThis.document.querySelector<HTMLButtonElement>(`#presentation-${id}`)!.disabled = !ready || id === 'update' && !selected;
     for (const id of ['edit', 'delete', 'up', 'down']) globalThis.document.querySelector<HTMLButtonElement>(`#presentation-${id}`)!.disabled = !selected
@@ -61,6 +67,7 @@ export function initializePresentation(host: Host) {
     player.stop(); const selected = action(); dirty = true; rebuild(typeof selected === 'number' ? selected : list.selectedIndex);
   }
   globalThis.document.querySelector('#animation-editor')!.addEventListener('click', () => { if (!panel.open) panel.show(); refresh(); });
+  panelToggle.addEventListener('click', () => { if (panel.open) panel.close(); else panel.show(); refresh(); });
   globalThis.document.querySelector('#presentation-close')!.addEventListener('click', () => panel.close());
   play.addEventListener('click', toggle); checkbox.checked = false; checkbox.addEventListener('change', toggle);
   list.addEventListener('change', select);
@@ -103,5 +110,5 @@ export function initializePresentation(host: Host) {
     else if (panel.open) { panel.close(); event.preventDefault(); }
   });
   rebuild();
-  return { player, loadFile, refresh, timeline: () => timeline, resetScene() { appliedScene = -1; } };
+  return { player, loadFile, refresh, toggle, timeline: () => timeline, resetScene() { appliedScene = -1; } };
 }

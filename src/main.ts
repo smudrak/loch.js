@@ -192,6 +192,12 @@ const presentation = initializePresentation({
   },
   error(error, file) { menus.expand(); showLoadError(status, error, { phase: 'Reading animation', ...(file ? { file } : { source: 'Animation' }) }); },
 });
+autorotate.setPlayback({
+  available: () => presentation.timeline().views.length > 0,
+  playing: () => presentation.player.playing,
+  ready: () => !document.querySelector<HTMLInputElement>('#play-presentation')!.disabled,
+  toggle: () => presentation.toggle(),
+});
 controls.addEventListener('start', () => presentation.player.stop());
 canvas.addEventListener('wheel', () => presentation.player.stop(), { passive: true });
 document.querySelector('#menus')!.addEventListener('change', event => {
@@ -440,6 +446,7 @@ function frame(time = performance.now()) {
     || loadingLargeWalls || preparationPending || surfaceScene.loading;
   saveAnimationButton.disabled = saveImageButton.disabled;
   presentation.refresh();
+  autorotate.refreshButton();
   if (exportRendering) return;
   const suspended = Boolean(imageSize.dialog.open || document.querySelector<HTMLDialogElement>('#presentation-edit-dialog')!.open || largeWorker || (preparationPending && walls.visible) || document.hidden);
   if (presentation.player.playing) presentation.player.update(time, suspended);

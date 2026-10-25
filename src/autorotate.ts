@@ -50,6 +50,7 @@ export class AutoRotation {
   }
 }
 
+type PlaybackControls = { available(): boolean; playing(): boolean; ready(): boolean; toggle(): void };
 export function initializeAutorotateControls(controls: OrbitControls) {
   let direction: 1 | -1 = 1;
   try { if (localStorage.getItem(AUTOROTATE_DIRECTION_KEY) === '-1') direction = -1; } catch { /* Storage may be disabled. */ }
@@ -58,20 +59,31 @@ export function initializeAutorotateControls(controls: OrbitControls) {
   const checkbox = document.querySelector<HTMLInputElement>('#autorotate')!;
   const button = document.querySelector<HTMLButtonElement>('#autorotate-toggle')!;
   const symbol = document.querySelector<SVGPathElement>('#autorotate-symbol')!;
+  let playback: PlaybackControls | undefined, buttonState = '';
+  function refreshButton() {
+    const animation = Boolean(playback?.available()), enabled = animation ? playback!.playing() : rotation.enabled;
+    const disabled = animation && !playback!.ready(), state = `${animation}:${enabled}:${disabled}`;
+    if (state === buttonState) return;
+    buttonState = state; button.disabled = disabled;
+    button.setAttribute('aria-pressed', String(enabled));
+    button.title = `${enabled ? 'Pause' : 'Start'} ${animation ? 'animation' : 'autorotation'}`;
+    button.setAttribute('aria-label', button.title);
+    symbol.setAttribute('d', enabled ? 'M7 5h4v14H7zm7 0h4v14h-4z' : 'M8 5v14l11-7z');
+  }
   function setEnabled(enabled: boolean) {
     rotation.enabled = enabled; checkbox.checked = enabled;
     wakeLock.enabled = enabled;
     try { localStorage.setItem(AUTOROTATE_DIRECTION_KEY, String(rotation.direction)); } catch { /* Keep the session preference. */ }
-    button.setAttribute('aria-pressed', String(enabled));
-    button.title = enabled ? 'Pause autorotation' : 'Start autorotation';
-    button.setAttribute('aria-label', button.title);
-    symbol.setAttribute('d', enabled ? 'M7 5h4v14H7zm7 0h4v14h-4z' : 'M8 5v14l11-7z');
+    refreshButton();
   }
   checkbox.addEventListener('change', () => setEnabled(checkbox.checked));
-  button.addEventListener('click', () => setEnabled(!rotation.enabled));
+  button.addEventListener('click', () => {
+    if (playback?.available()) playback.toggle(); else setEnabled(!rotation.enabled);
+    refreshButton();
+  });
   document.addEventListener('visibilitychange', () => rotation.resetTime());
   window.addEventListener('pagehide', () => { wakeLock.enabled = false; });
   window.addEventListener('pageshow', () => { wakeLock.enabled = rotation.enabled; });
   setEnabled(false);
-  return rotation;
+  return Object.assign(rotation, { refreshButton, setPlayback(value: PlaybackControls) { playback = value; refreshButton(); } });
 }
