@@ -160,7 +160,8 @@ let exportRendering = false;
 const imageSize = initializeImageSizeDialog(saveImageButton, () => ({ width: canvas.width, height: canvas.height }),
   Math.min(8192, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)));
 const imageExport = initializeSaveImage(imageSize.save, async () => {
-  const size = imageSize.size(), scale = imageSize.overlayScale(), originalCamera = camera;
+  const size = imageSize.size(), originalCamera = camera;
+  const scale = imageSize.overlayScale() * size.height / canvas.clientHeight;
   const overlaySize = { width: size.width / scale, height: size.height / scale };
   exportRendering = true; autorotate.resetTime();
   let rendered: HTMLCanvasElement | undefined;
