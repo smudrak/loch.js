@@ -26,12 +26,13 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
   const progress = document.querySelector<HTMLProgressElement>('#animation-progress')!;
   const progressText = document.querySelector<HTMLElement>('#animation-progress-text')!;
   let ratio = 1, busy = false, animation = false, abort = new AbortController();
+  let renderingStarted: number | undefined;
   const size = () => ({ width: width.valueAsNumber, height: height.valueAsNumber });
   const round = (value: number) => animation ? Math.max(2, Math.round(value / 2) * 2) : Math.max(1, Math.round(value));
   for (const input of [width, height]) input.max = String(maxDimension);
   const describe = () => { const info = animationInfo(); description.textContent = `${info.views ? `${info.views} views · ${info.duration} seconds` : '360° rotation · 15 seconds'} · ${fps.value} fps`; };
   const open = (video: boolean) => {
-    animation = video; abort = new AbortController();
+    animation = video; abort = new AbortController(); renderingStarted = undefined;
     const current = video ? { width: 1920, height: 1080 } : currentSize();
     width.value = String(round(current.width)); height.value = String(round(current.height));
     for (const input of [width, height]) { input.min = video ? '2' : '1'; input.step = video ? '2' : '1'; }
@@ -75,7 +76,13 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
     animationSettings: (): AnimationSettings => ({ fps: fps.valueAsNumber, quality: quality.value as AnimationQuality }),
     progress(completed: number, total: number) {
       progress.max = total; progress.value = completed;
-      progressText.textContent = completed === total ? 'Finalizing MP4…' : `Rendering frame ${completed} of ${total} (${Math.round(completed / total * 100)}%)`;
+      const now = performance.now();
+      if (completed === 0 || renderingStarted === undefined) renderingStarted = now;
+      const seconds = Math.ceil((now - renderingStarted) / 1000 / Math.max(1, completed) * (total - completed));
+      const minutes = Math.floor(seconds / 60), remainder = String(seconds % 60).padStart(2, '0');
+      const remaining = seconds >= 3600 ? `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}:${remainder}` : `${minutes}:${remainder}`;
+      const eta = completed ? remaining : 'estimating…';
+      progressText.textContent = completed === total ? 'Finalizing MP4…' : `Rendering frame ${completed} of ${total} (${Math.round(completed / total * 100)}%) · ETA ${eta}`;
     }, finish() {
       busy = false; save.textContent = 'Save…'; cancel.disabled = false;
       width.disabled = height.disabled = aspect.disabled = scale.disabled = white.disabled = fps.disabled = quality.disabled = false; save.disabled = false; dialog.close();
