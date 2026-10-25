@@ -3,8 +3,15 @@ import type { ViewCamera } from './camera';
 import type { LxaCamera, LxaView } from './presentation';
 export type PresentationPose = LxaCamera & { walker: boolean; sceneIndex: number };
 type Segment = { start: number; duration: number; from: number; to: number; rotation: boolean };
+type Velocity = { facing: number; tilt: number; distance: number; focus: number; center: number[]; position: Vector3 };
 const radians = MathUtils.degToRad;
 const lerp = MathUtils.lerp;
+const angleDelta = (from: number, to: number) => {
+  const delta = ((to - from + 180) % 360 + 360) % 360 - 180;
+  return delta === -180 && to - from > 0 ? 180 : delta;
+};
+const hermite = (from: number, to: number, startVelocity: number, endVelocity: number, t: number, duration: number) =>
+  lerp(from, to, t * t * (3 - 2 * t)) + duration * ((t ** 3 - 2 * t * t + t) * startVelocity + (t ** 3 - t * t) * endVelocity);
 const polar = (distance: number, bearing: number, tilt: number) => new Vector3(Math.sin(radians(bearing)) * Math.cos(radians(tilt)), Math.cos(radians(bearing)) * Math.cos(radians(tilt)), Math.sin(radians(tilt))).multiplyScalar(distance);
 export const presentationPosition = (view: LxaCamera) => new Vector3(...view.center).add(polar(view.distance, view.facing + 180, view.tilt));
 export function transitionProgress(t: number, from: boolean, to: boolean) {
@@ -14,6 +21,7 @@ export class PresentationTimeline {
   readonly segments: Segment[] = [];
   readonly viewTimes: number[];
   readonly duration: number;
+  private velocities: Velocity[];
   constructor(readonly views: LxaView[], readonly loop: boolean, readonly sceneChanges = false) {
     this.viewTimes = views.map(() => 0); let time = 0;
     if (views.length === 1) this.segments.push({ start: 0, duration: 15, from: 0, to: 0, rotation: true });
@@ -26,6 +34,41 @@ export class PresentationTimeline {
       if (to !== 0) this.viewTimes[to] = time;
     }
     this.duration = views.length === 1 ? 15 : time;
+    this.velocities = views.map((_, index) => ({ facing: this.velocity(index, view => view.facing, true),
+      tilt: this.velocity(index, view => view.tilt, false, true), distance: this.velocity(index, view => view.distance, false, true),
+      focus: this.velocity(index, view => view.focus, false, true), center: [0, 1, 2].map(axis => this.velocity(index, view => view.center[axis])), position: new Vector3() }));
+    views.forEach((view, index) => {
+      const previous = index > 0 || loop ? views[(index + views.length - 1) % views.length] : undefined;
+      const next = index < views.length - 1 || loop ? views[(index + 1) % views.length] : undefined;
+      const velocity = this.velocities[index];
+      if ((!previous || view.walker) && (!next || next.walker)) {
+        velocity.position.fromArray([0, 1, 2].map(axis => this.velocity(index, view => presentationPosition(view).getComponent(axis))));
+      } else {
+        // An orbit's camera velocity includes the changing pivot, heading,
+        // tilt and distance. Use it on an adjoining Walker segment too.
+        const facing = radians(view.facing), tilt = radians(view.tilt), distance = view.distance;
+        velocity.position.fromArray(velocity.center)
+          .addScaledVector(polar(1, view.facing + 180, view.tilt), velocity.distance)
+          .addScaledVector(new Vector3(-Math.cos(facing) * Math.cos(tilt), Math.sin(facing) * Math.cos(tilt), 0), distance * radians(velocity.facing))
+          .addScaledVector(new Vector3(Math.sin(facing) * Math.sin(tilt), Math.cos(facing) * Math.sin(tilt), Math.cos(tilt)), distance * radians(velocity.tilt));
+      }
+    });
+  }
+  private velocity(index: number, value: (view: LxaView) => number, angle = false, bounded = false) {
+    const view = this.views[index];
+    // Explicit orbit phases ease to/from rest, so transitions must meet them at rest.
+    if (!view.transition || view.rotations || this.views.length < 2) return 0;
+    const previous = index > 0 || this.loop ? this.views[(index + this.views.length - 1) % this.views.length] : undefined;
+    const next = index < this.views.length - 1 || this.loop ? this.views[(index + 1) % this.views.length] : undefined;
+    const delta = (a: LxaView, b: LxaView) => angle ? angleDelta(value(a), value(b)) : value(b) - value(a);
+    const incoming = previous ? delta(previous, view) / view.duration : undefined;
+    const outgoing = next ? delta(view, next) / next.duration : undefined;
+    if (incoming === undefined) return outgoing ?? 0;
+    if (outgoing === undefined) return incoming;
+    const slope = (incoming * next!.duration + outgoing * view.duration) / (view.duration + next!.duration);
+    // Avoid overshoot in inclination, lens and positive camera distance.
+    if (bounded) return incoming * outgoing <= 0 ? 0 : Math.sign(slope) * Math.min(Math.abs(slope), 3 * Math.min(Math.abs(incoming), Math.abs(outgoing)));
+    return slope;
   }
   frames(fps: number) {
     if (!Number.isInteger(fps) || fps < 1 || fps > 120) throw new Error('Invalid animation FPS');
@@ -61,15 +104,19 @@ export class PresentationTimeline {
       const angle = this.views.length === 1 ? t * 360 : transitionProgress(t, false, false) * 360 * from.rotations;
       return { ...from, center: [...from.center], facing: from.facing + angle, walker: from.walker, sceneIndex: segment.from };
     }
-    t = transitionProgress(t, from.transition, to.transition);
-    let delta = to.facing - from.facing;
-    delta = ((delta + 180) % 360 + 360) % 360 - 180;
-    if (delta === -180 && to.facing - from.facing > 0) delta = 180;
-    const pose: PresentationPose = { facing: from.facing + delta * t, tilt: lerp(from.tilt, to.tilt, t),
-      center: from.center.map((value, axis) => lerp(value, to.center[axis], t)) as [number, number, number],
-      distance: lerp(from.distance, to.distance, t), focus: lerp(from.focus, to.focus, t), perspective: t <= .5 ? from.perspective : to.perspective,
+    const start = this.velocities[segment.from], end = this.velocities[segment.to];
+    const interpolate = (a: number, b: number, va: number, vb: number) => hermite(a, b, va, vb, t, segment.duration);
+    const pose: PresentationPose = { facing: interpolate(from.facing, from.facing + angleDelta(from.facing, to.facing), start.facing, end.facing),
+      tilt: interpolate(from.tilt, to.tilt, start.tilt, end.tilt),
+      center: from.center.map((value, axis) => interpolate(value, to.center[axis], start.center[axis], end.center[axis])) as [number, number, number],
+      distance: interpolate(from.distance, to.distance, start.distance, end.distance), focus: interpolate(from.focus, to.focus, start.focus, end.focus),
+      perspective: transitionProgress(t, from.transition, to.transition) <= .5 ? from.perspective : to.perspective,
       walker: to.walker, sceneIndex: segment.from };
-    if (to.walker) pose.center = presentationPosition(from).lerp(presentationPosition(to), t).sub(polar(pose.distance, pose.facing + 180, pose.tilt)).toArray();
+    if (to.walker) {
+      const a = presentationPosition(from), b = presentationPosition(to);
+      pose.center = [0, 1, 2].map(axis => interpolate(a.getComponent(axis), b.getComponent(axis), start.position.getComponent(axis), end.position.getComponent(axis))) as [number, number, number];
+      new Vector3(...pose.center).sub(polar(pose.distance, pose.facing + 180, pose.tilt)).toArray(pose.center);
+    }
     return pose;
   }
 }
