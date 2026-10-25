@@ -29,6 +29,7 @@ import { applyImageBackground, setSceneBackground } from './image-print-theme';
 import { initializePresentation } from './presentation-ui';
 import { capturePresentationCamera, presentationCamera, type PresentationPose } from './presentation-timeline';
 import { applySceneSettings, snapshotPresentationControls } from './presentation-scene';
+import { PresentationGuides } from './presentation-guides';
 import './style.css';
 
 initializeAbout();
@@ -48,6 +49,7 @@ const light = new THREE.DirectionalLight(0xffffff, 2); scene.add(light, light.ta
 const headlight = createHeadlight(); scene.add(headlight, headlight.target);
 const walls = new THREE.Group(), lines = new THREE.Group(); scene.add(walls, lines);
 const surfaceGroup = new THREE.Group(); scene.add(surfaceGroup);
+const presentationGuides = new PresentationGuides(); scene.add(presentationGuides.group);
 const boundingBox = new THREE.Box3Helper(new THREE.Box3(), 0xff0000);
 boundingBox.visible = false;
 scene.add(boundingBox);
@@ -237,6 +239,8 @@ const imageExport = initializeSaveFile(imageSize.save, async () => {
   const scale = imageSize.overlayScale() * size.height / canvas.clientHeight;
   const overlaySize = { width: size.width / scale, height: size.height / scale };
   exportRendering = true; autorotate.resetTime(); presentation.player.resetTime();
+  const guidesVisible = presentationGuides.group.visible;
+  if (imageSize.animation()) presentationGuides.group.visible = false;
   const originalTarget = controls.target.clone(), timeline = presentation.timeline();
   const restoreScene = snapshotPresentationControls();
   let exportScene = -1;
@@ -282,6 +286,7 @@ const imageExport = initializeSaveFile(imageSize.save, async () => {
     const canvas = await frame(imageCamera(originalCamera, size));
     try { return await canvasPng(canvas); } finally { canvas.width = 0; canvas.height = 0; }
   } finally {
+    presentationGuides.group.visible = guidesVisible;
     restoreScene(); restorePrintTheme?.(); restoreLayout(); wakeLock.dispose(); presentation.resetScene();
     camera = originalCamera; lighting.updateCamera(); exportRendering = false; autorotate.resetTime(); presentation.player.resetTime();
   }
@@ -473,6 +478,7 @@ function frame(time = performance.now()) {
   const suspended = Boolean(imageSize.dialog.open || document.querySelector<HTMLDialogElement>('#presentation-edit-dialog')!.open || largeWorker || (preparationPending && walls.visible) || document.hidden);
   if (presentation.player.playing) presentation.player.update(time, suspended);
   else autorotate.update(time, suspended);
+  if (presentationGuides.update(presentation.timeline(), activeOrigin, !presentation.player.playing && !largeWorker && !loadingLargeWalls && !activeBox.isEmpty())) invalidateView();
   if (sceneDirty) {
     updateSceneBackground();
     indicators.update();

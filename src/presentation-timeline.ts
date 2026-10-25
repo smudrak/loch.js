@@ -6,7 +6,7 @@ type Segment = { start: number; duration: number; from: number; to: number; rota
 const radians = MathUtils.degToRad;
 const lerp = MathUtils.lerp;
 const polar = (distance: number, bearing: number, tilt: number) => new Vector3(Math.sin(radians(bearing)) * Math.cos(radians(tilt)), Math.cos(radians(bearing)) * Math.cos(radians(tilt)), Math.sin(radians(tilt))).multiplyScalar(distance);
-const position = (view: LxaCamera) => new Vector3(...view.center).add(polar(view.distance, view.facing + 180, view.tilt));
+export const presentationPosition = (view: LxaCamera) => new Vector3(...view.center).add(polar(view.distance, view.facing + 180, view.tilt));
 export function transitionProgress(t: number, from: boolean, to: boolean) {
   return (t ** 3 - 2 * t * t + t) * Number(from) + (-2 * t ** 3 + 3 * t * t) + (t ** 3 - t * t) * Number(to);
 }
@@ -51,8 +51,12 @@ export class PresentationTimeline {
     }
     const time = this.loop ? ((seconds % this.duration) + this.duration) % this.duration : Math.max(0, seconds);
     const segment = this.segments.find(part => time < part.start + part.duration) ?? this.segments[this.segments.length - 1];
+    return this.interpolate(segment, (time - segment.start) / segment.duration);
+  }
+  sampleSegment(index: number, progress: number) { return this.interpolate(this.segments[index], progress); }
+  private interpolate(segment: Segment, progress: number): PresentationPose {
     const from = this.views[segment.from], to = this.views[segment.to];
-    let t = Math.max(0, Math.min(1, (time - segment.start) / segment.duration));
+    let t = Math.max(0, Math.min(1, progress));
     if (segment.rotation) {
       const angle = this.views.length === 1 ? t * 360 : transitionProgress(t, false, false) * 360 * from.rotations;
       return { ...from, center: [...from.center], facing: from.facing + angle, walker: from.walker, sceneIndex: segment.from };
@@ -65,7 +69,7 @@ export class PresentationTimeline {
       center: from.center.map((value, axis) => lerp(value, to.center[axis], t)) as [number, number, number],
       distance: lerp(from.distance, to.distance, t), focus: lerp(from.focus, to.focus, t), perspective: t <= .5 ? from.perspective : to.perspective,
       walker: to.walker, sceneIndex: segment.from };
-    if (to.walker) pose.center = position(from).lerp(position(to), t).sub(polar(pose.distance, pose.facing + 180, pose.tilt)).toArray();
+    if (to.walker) pose.center = presentationPosition(from).lerp(presentationPosition(to), t).sub(polar(pose.distance, pose.facing + 180, pose.tilt)).toArray();
     return pose;
   }
 }
@@ -74,7 +78,7 @@ export function presentationCamera(view: LxaCamera, origin: Vector3, aspect: num
   const near = Math.min(clip.near, .1, view.distance * .01);
   const camera = view.perspective ? new PerspectiveCamera(2 * MathUtils.radToDeg(Math.atan(12 / focus)), aspect, near, clip.far)
     : new OrthographicCamera(-halfHeight * aspect, halfHeight * aspect, halfHeight, -halfHeight, near, clip.far);
-  camera.up.set(0, 0, 1); camera.position.copy(position(view)).sub(origin);
+  camera.up.set(0, 0, 1); camera.position.copy(presentationPosition(view)).sub(origin);
   const bearing = radians(view.facing), tilt = radians(view.tilt);
   const right = new Vector3(Math.cos(bearing), -Math.sin(bearing), 0);
   const up = new Vector3(Math.sin(tilt) * Math.sin(bearing), Math.sin(tilt) * Math.cos(bearing), Math.cos(tilt));
