@@ -52,7 +52,7 @@ export class Presentation {
     const node = this.document.createElement('Scene'), elements = this.elements;
     this.root.insertBefore(node, after < 0 ? elements[0] ?? null : elements[after]?.nextSibling ?? null);
     const index = this.elements.indexOf(node);
-    this.edit(index, { name: String(index).padStart(4, '0'), duration: 3, rotations: 0, rotationDuration: 15, walker, transition: false });
+    this.edit(index, { name: String(index).padStart(4, '0'), duration: 3, rotations: 0, rotationDuration: 15, walker, transition: true });
     this.update(index, camera, walker, scene); return index;
   }
   update(index: number, camera: LxaCamera, walker: boolean, scene: Record<string, string>) {

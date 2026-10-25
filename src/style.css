@@ -121,7 +121,7 @@ header.compact:not(.collapsed)~main #project-title{top:calc(34px + 1.4rem + 16px
 
 #animation-quality{width:120px;padding:6px;border:1px solid #678599;border-radius:4px;background:#09131c;color:inherit;font:inherit}
 
-#presentation-panel{position:fixed;inset:82px 16px auto auto;margin:0;width:min(500px,calc(100% - 32px));max-height:calc(100% - 100px);overflow:auto;z-index:3;padding:16px;border:1px solid #678599;border-radius:10px;background:#162531;color:#eaf3ff;box-shadow:0 8px 24px #0006}
+#presentation-panel{position:fixed;inset:auto 16px 16px auto;margin:0;width:min(500px,calc(100% - 32px));max-height:calc(100% - 100px);overflow:auto;z-index:3;padding:16px;border:1px solid #678599;border-radius:10px;background:#162531;color:#eaf3ff;box-shadow:0 8px 24px #0006}
 #presentation-panel header{padding:0;justify-content:space-between;gap:12px}#presentation-panel h2{margin:0;font-size:1.15rem}
 #presentation-summary{font-size:.85rem;color:#b8ccd9}#presentation-views{width:100%;min-height:160px;background:#09131c;color:inherit;border:1px solid #678599;font:inherit;padding:6px}
 .presentation-actions{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}#presentation-panel>label{display:block;margin:8px 0}
