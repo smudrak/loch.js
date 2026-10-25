@@ -250,7 +250,7 @@ const imageExport = initializeSaveFile(imageSize.save, async () => {
   const restoreLayout = () => {
     if (previousStyle === null) main.removeAttribute('style'); else main.setAttribute('style', previousStyle);
     main.classList.toggle('image-white-background', backgroundCheckbox.checked); camera = originalCamera; controls.target.copy(originalTarget);
-    indicators.update(); centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight, undefined, backgroundCheckbox.checked);
+    indicators.update(); centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight, undefined, backgroundCheckbox.checked, presentationGuides.group.visible ? presentationGuides.labels : []);
   };
   const frame = async (view: ViewCamera, target = originalTarget, sceneIndex = -1) => {
     signal.throwIfAborted();
@@ -261,7 +261,7 @@ const imageExport = initializeSaveFile(imageSize.save, async () => {
     try {
       main.style.cssText += `;position:absolute;width:${overlaySize.width}px;height:${overlaySize.height}px;flex:none;`;
       main.classList.toggle('image-white-background', whiteBackground);
-      indicators.update(overlaySize.height); centreline.updateLabels(camera, overlaySize.width, overlaySize.height, scale, whiteBackground);
+      indicators.update(overlaySize.height); centreline.updateLabels(camera, overlaySize.width, overlaySize.height, scale, whiteBackground, presentationGuides.group.visible ? presentationGuides.labels : []);
       const composite = composeImage(rendered, document.querySelector<HTMLCanvasElement>('#station-labels')!, [
         document.querySelector<HTMLElement>('#model-indicators')!, document.querySelector<HTMLElement>('#scale-indicator')!,
       ], overlaySize);
@@ -288,7 +288,7 @@ const imageExport = initializeSaveFile(imageSize.save, async () => {
   } finally {
     presentationGuides.group.visible = guidesVisible;
     restoreScene(); restorePrintTheme?.(); restoreLayout(); wakeLock.dispose(); presentation.resetScene();
-    camera = originalCamera; lighting.updateCamera(); exportRendering = false; autorotate.resetTime(); presentation.player.resetTime();
+    camera = originalCamera; lighting.updateCamera(); exportRendering = false; autorotate.resetTime(); presentation.player.resetTime(); invalidateView();
   }
 }, () => imageName, error => {
   menus.expand();
@@ -482,7 +482,7 @@ function frame(time = performance.now()) {
   if (sceneDirty) {
     updateSceneBackground();
     indicators.update();
-    centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight, undefined, backgroundCheckbox.checked);
+    centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight, undefined, backgroundCheckbox.checked, presentationGuides.group.visible ? presentationGuides.labels : []);
   }
   if (preparationPending && !largeWorker && largeScene && largeModel && walls.visible && !loadingError) {
     try {

@@ -18,6 +18,24 @@ function setup(stations: Station[]) {
 }
 
 describe('bounded, non-overlapping station labels', () => {
+  it('shares overlap handling with camera names and draws them when station labeling is off', () => {
+    const { labels, context } = setup([station('Station')]);
+    const camera = new PerspectiveCamera(45, 4 / 3, .1, 100);
+    const names = [{ name: 'Entrance view', position: [0, 0, -10] as [number, number, number] },
+      { name: 'Overlapping view', position: [0, 0, -10] as [number, number, number] }];
+    labels.draw(camera, 800, 600, new Vector3(), 'number', () => true, undefined, undefined, false, names);
+    expect(context.fillText.mock.calls.map(call => call[0])).toEqual(['Entrance view']);
+    context.fillText.mockClear();
+    labels.draw(camera, 800, 600, new Vector3(), 'none', () => false, undefined, undefined, true, names);
+    expect(context.fillText.mock.calls.map(call => call[0])).toEqual(['Entrance view']);
+    expect(context).toMatchObject({ fillStyle: '#162531', strokeStyle: '#ffffff' });
+  });
+  it('clips camera names behind the observer and preserves names that resemble temporary stations', () => {
+    const { labels, context } = setup([]);
+    labels.draw(new PerspectiveCamera(45, 4 / 3, .1, 100), 800, 600, new Vector3(), 'none', () => false, undefined, undefined, false,
+      [{ name: '.', position: [-2, 0, -10] }, { name: '-', position: [2, 0, -10] }, { name: 'Behind', position: [0, 0, 10] }]);
+    expect(context.fillText.mock.calls.map(call => call[0])).toEqual(['.', '-']);
+  });
   it.each(['perspective', 'orthographic'])('prioritizes commented stations and skips overlapping labels with a %s camera', type => {
     const { labels, context } = setup([station('ordinary'), station('priority', 0, 'Entrance'), station('separate', -3)]);
     const camera = type === 'perspective' ? new PerspectiveCamera(45, 4 / 3, .1, 100) : new OrthographicCamera(-8, 8, 6, -6, .1, 100);

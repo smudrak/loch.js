@@ -19,6 +19,7 @@ describe('animation viewpoint guides', () => {
     expect(markers.geometry.boundingBox!.getSize(new THREE.Vector3()).z).toBeCloseTo(.5);
     expect(markers.geometry.boundingBox!.min.z).toBeCloseTo(0);
     timeline.views.forEach((view, index) => {
+      expect(guides.labels[index]).toEqual({ name: view.name, position: presentationPosition(view).toArray() });
       const expected = presentationCamera(view, origin, 1, new THREE.PerspectiveCamera()), matrix = new THREE.Matrix4();
       markers.getMatrixAt(index, matrix);
       const position = new THREE.Vector3(), orientation = new THREE.Quaternion(), scale = new THREE.Vector3(); matrix.decompose(position, orientation, scale);
@@ -53,7 +54,7 @@ describe('animation viewpoint guides', () => {
     expect(guides.update(timeline, origin, true)).toBe(false); expect(guides.group.children[0]).toBe(marker);
     expect(guides.update(timeline, origin, false)).toBe(true); expect(guides.group.visible).toBe(false); expect(disposed).not.toHaveBeenCalled();
     guides.update(timeline, origin.clone().addScalar(10), true); expect(disposed).toHaveBeenCalledTimes(1);
-    guides.update(new PresentationTimeline([], true), origin, true); expect(guides.group.children).toHaveLength(0); expect(guides.group.visible).toBe(false);
+    guides.update(new PresentationTimeline([], true), origin, true); expect(guides.group.children).toHaveLength(0); expect(guides.group.visible).toBe(false); expect(guides.labels).toHaveLength(0);
     guides.dispose();
   });
 });

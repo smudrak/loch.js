@@ -6,6 +6,7 @@ const HEIGHT = 20;
 const MAX_TEXT_WIDTH = 360;
 
 export type StationMarker = 'entrance' | 'fixed' | 'continuation';
+export type PositionLabel = { name: string; position: [number, number, number] };
 const markerScale = (marker: StationMarker) => marker === 'fixed' ? 1 / 3 : .7;
 
 /** Fixed-size symbols drawn directly on the shared overlay, centred on the station. */
@@ -76,7 +77,7 @@ export class StationLabels {
   }
   setVisible(visible: boolean) { if (this.canvas) this.canvas.hidden = !visible; }
 
-  draw(camera: Camera, width: number, height: number, origin: Vector3, mode: StationLabel, visible: (station: Station) => boolean, marker?: (station: Station) => StationMarker | undefined, pixelRatio?: number, whiteBackground = false) {
+  draw(camera: Camera, width: number, height: number, origin: Vector3, mode: StationLabel, visible: (station: Station) => boolean, marker?: (station: Station) => StationMarker | undefined, pixelRatio?: number, whiteBackground = false, additional: readonly PositionLabel[] = []) {
     const canvas = this.canvas;
     if (!canvas || canvas.hidden || width <= 0 || height <= 0) return;
     const ratio = pixelRatio ?? Math.min(globalThis.devicePixelRatio || 1, 2, Math.sqrt(8_388_608 / (width * height)));
@@ -92,7 +93,7 @@ export class StationLabels {
     camera.updateMatrixWorld();
     const m = this.matrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).elements;
     let screenX = 0, screenY = 0;
-    const project = (station: Station) => {
+    const project = (station: PositionLabel) => {
       const x = station.position[0] - origin.x, y = station.position[1] - origin.y, z = station.position[2] - origin.z;
       const w = m[3] * x + m[7] * y + m[11] * z + m[15];
       if (w <= 0) return false;
@@ -115,14 +116,14 @@ export class StationLabels {
       for (const station of this.commented) mark(station);
       for (const station of this.ordinary) mark(station);
     }
-    if (mode === 'none') return;
-    const draw = (station: Station) => {
-      if (!visible(station) || !project(station)) return;
-      const symbol = marker?.(station);
+    const draw = (point: Station | PositionLabel) => {
+      const station = 'flags' in point ? point : undefined;
+      if ((station && !visible(station)) || !project(point)) return;
+      const symbol = station ? marker?.(station) : undefined;
       const left = screenX + (symbol ? 10 * markerScale(symbol) + 4 : 3), top = screenY - HEIGHT / 2;
       if (left < 0 || top < 0 || left + 10 > width || top + HEIGHT > height
         || this.occupancy.overlaps(left, top, 10, HEIGHT)) return;
-      let text = stationLabel(station, mode);
+      let text = station ? stationLabel(station, mode) : point.name;
       if (!text) return;
       // Bound measurement work for long survey paths and comments.
       if (text.length > 256) text = text.slice(0, 255).replace(/[\uD800-\uDBFF]$/, '') + '…';
@@ -144,6 +145,8 @@ export class StationLabels {
       const textX = left + (symbol ? 0 : 2);
       context.strokeText(text, textX, top + HEIGHT / 2); context.fillText(text, textX, top + HEIGHT / 2);
     };
+    for (const label of additional) draw(label);
+    if (mode === 'none') return;
     for (const station of this.commented) draw(station);
     if (mode !== 'comments') for (const station of this.ordinary) draw(station);
   }

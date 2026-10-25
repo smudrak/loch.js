@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { StationLabels, type StationMarker } from './station-labels';
+import { StationLabels, type StationMarker, type PositionLabel } from './station-labels';
 import { STATION_SURFACE, STATION_ENTRANCE, STATION_FIXED, STATION_CONTINUATION, temporaryStation, type Station, type StationLabel } from './lox-stations';
 
 export type StationOptions = { stations: boolean; entrance: boolean; fixed: boolean; continuation: boolean; label: StationLabel; surface: boolean; underground: boolean; splay: boolean };
@@ -58,10 +58,10 @@ export class StationScene {
     this.labels.setVisible(this.group.visible && overlayVisible(options));
   }
 
-  updateLabels(camera: THREE.Camera, width: number, height: number, pixelRatio?: number, whiteBackground = false) {
+  updateLabels(camera: THREE.Camera, width: number, height: number, pixelRatio?: number, whiteBackground = false, additional: readonly PositionLabel[] = []) {
     const visible = this.group.visible && overlayVisible(this.options);
-    this.labels.setVisible(visible);
-    if (visible) this.labels.draw(camera, width, height, this.origin, this.options.label, station => stationVisible(station, this.options), (this.options.entrance || this.options.fixed || this.options.continuation) ? station => stationMarker(station, this.options) : undefined, pixelRatio, whiteBackground);
+    this.labels.setVisible(visible || additional.length > 0);
+    if (visible || additional.length) this.labels.draw(camera, width, height, this.origin, visible ? this.options.label : 'none', station => visible && stationVisible(station, this.options), visible && (this.options.entrance || this.options.fixed || this.options.continuation) ? station => stationMarker(station, this.options) : undefined, pixelRatio, whiteBackground, additional);
   }
 
   clear() {

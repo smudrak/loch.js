@@ -4,6 +4,7 @@ import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { presentationCamera, presentationPosition, type PresentationTimeline } from './presentation-timeline';
+import type { PositionLabel } from './station-labels';
 
 export function presentationPath(timeline: PresentationTimeline, origin: THREE.Vector3) {
   const points: number[] = [], previous = new THREE.Vector3(Infinity, Infinity, Infinity);
@@ -43,6 +44,7 @@ function cameraGeometry() {
 
 export class PresentationGuides {
   readonly group = new THREE.Group();
+  labels: PositionLabel[] = [];
   private timeline?: PresentationTimeline;
   private origin = new THREE.Vector3(Infinity, Infinity, Infinity);
   constructor() { this.group.name = 'Animation viewpoints and path'; this.group.visible = false; }
@@ -51,6 +53,7 @@ export class PresentationGuides {
     const rebuild = this.timeline !== timeline || !this.origin.equals(origin);
     if (rebuild) {
       this.clear(); this.timeline = timeline; this.origin.copy(origin);
+      this.labels = timeline.views.map(view => ({ name: view.name, position: presentationPosition(view).toArray() }));
       if (timeline.views.length) {
         const markers = new THREE.InstancedMesh(cameraGeometry(), new THREE.MeshBasicMaterial({ color: 0xff2222, vertexColors: true }), timeline.views.length);
         markers.name = 'Animation cameras';
@@ -72,6 +75,7 @@ export class PresentationGuides {
   }
 
   private clear() {
+    this.labels = [];
     for (const child of [...this.group.children]) {
       const mesh = child as THREE.Mesh;
       mesh.geometry.dispose();

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { SHOT_DUPLICATE, SHOT_SPLAY, SHOT_SURFACE, type Shot } from './lox-shots';
 import { StationScene, type StationOptions } from './stations';
 import type { Station, StationLabel } from './lox-stations';
+import type { PositionLabel } from './station-labels';
 
 type AltitudeRange = { minZ: number; maxZ: number };
 export type CentrelineOptions = StationOptions & { color: 'altitude' | 'default'; duplicate: boolean };
@@ -33,7 +34,7 @@ export class CentrelineScene {
     this.stations = new StationScene(group, labels);
   }
 
-  updateLabels(camera: THREE.Camera, width: number, height: number, pixelRatio?: number, whiteBackground = false) { this.stations.updateLabels(camera, width, height, pixelRatio, whiteBackground); }
+  updateLabels(camera: THREE.Camera, width: number, height: number, pixelRatio?: number, whiteBackground = false, additional: readonly PositionLabel[] = []) { this.stations.updateLabels(camera, width, height, pixelRatio, whiteBackground, additional); }
 
   setModel(model: AltitudeRange & { shots: Shot[]; stationDetails?: Station[] }, origin: THREE.Vector3) {
     this.clear(); this.range = { minZ: model.minZ, maxZ: model.maxZ }; this.originZ = origin.z;
