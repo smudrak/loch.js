@@ -7,7 +7,7 @@ export function validImageSize(size: ImageSize, maxDimension: number) {
     && size.width <= maxDimension && size.height <= maxDimension && size.width * size.height <= MAX_IMAGE_PIXELS;
 }
 export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize: () => ImageSize, maxDimension: number,
-  animationButton?: HTMLButtonElement) {
+  animationButton?: HTMLButtonElement, screenWhiteBackground: () => boolean = () => false) {
   const dialog = document.querySelector<HTMLDialogElement>('#image-size-dialog')!;
   const form = dialog.querySelector('form')!;
   const title = document.querySelector<HTMLElement>('#image-size-title')!;
@@ -39,7 +39,7 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
     white.closest('label')!.hidden = video; fps.value = '30'; quality.value = 'high';
     description.textContent = '360° rotation · 15 seconds · 30 fps';
     progress.value = 0; progressText.textContent = ''; aspect.checked = true;
-    white.checked = false; scale.value = '100'; width.setCustomValidity(''); dialog.showModal(); width.focus(); width.select();
+    white.checked = screenWhiteBackground(); scale.value = '100'; width.setCustomValidity(''); dialog.showModal(); width.focus(); width.select();
   };
   button.addEventListener('click', () => open(false));
   animationButton?.addEventListener('click', () => open(true));
@@ -70,7 +70,7 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
   cancel.addEventListener('click', stop);
   dialog.addEventListener('cancel', event => { if (busy) { event.preventDefault(); if (animation) stop(); } });
   return { dialog, save, size, animation: () => animation, signal: () => abort.signal,
-    overlayScale: () => scale.valueAsNumber / 100, whiteBackground: () => !animation && white.checked,
+    overlayScale: () => scale.valueAsNumber / 100, whiteBackground: () => animation ? screenWhiteBackground() : white.checked,
     animationSettings: (): AnimationSettings => ({ fps: fps.valueAsNumber, quality: quality.value as AnimationQuality }),
     progress(completed: number, total: number) {
       progress.max = total; progress.value = completed;

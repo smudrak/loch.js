@@ -1,19 +1,35 @@
 import { Color, LineBasicMaterial, PointsMaterial, type Group, type Material, type Object3D, type Scene } from 'three';
 
-/** Change only export colours; restore shared live-scene materials afterwards. */
-export function applyImagePrintTheme(scene: Scene, centreline: Group, defaultCentreline: boolean) {
-  const background = scene.background;
-  const colors = new Map<LineBasicMaterial | PointsMaterial, Color>();
-  scene.background = new Color(0xffffff);
+function annotationMaterials(centreline: Group) {
+  const materials = new Set<LineBasicMaterial | PointsMaterial>();
   centreline.traverse((object: Object3D & { material?: Material | Material[] }) => {
     for (const material of object.material ? Array.isArray(object.material) ? object.material : [object.material] : []) {
-      if ((material instanceof PointsMaterial || defaultCentreline && material instanceof LineBasicMaterial) && !colors.has(material)) {
-        colors.set(material, material.color.clone()); material.color.setHex(0x162531);
-      }
+      if (material instanceof PointsMaterial || material instanceof LineBasicMaterial) materials.add(material);
     }
   });
+  return materials;
+}
+
+/** Keep station dots and uncoloured centreline readable against either background. */
+export function setSceneBackground(scene: Scene, centreline: Group, white: boolean, defaultCentreline: boolean) {
+  if (scene.background instanceof Color) scene.background.setHex(white ? 0xffffff : 0x000000);
+  else scene.background = new Color(white ? 0xffffff : 0x000000);
+  for (const material of annotationMaterials(centreline)) {
+    material.color.setHex(white && (material instanceof PointsMaterial || defaultCentreline) ? 0x162531 : 0xffffff);
+  }
+}
+
+/** Apply an export background without changing the live scene's background or colours. */
+export function applyImageBackground(scene: Scene, centreline: Group, defaultCentreline: boolean, white: boolean) {
+  const background = scene.background;
+  const colors = new Map([...annotationMaterials(centreline)].map(material => [material, material.color.clone()]));
+  // Keep the original Color object unchanged so it can be restored by identity.
+  scene.background = new Color(); setSceneBackground(scene, centreline, white, defaultCentreline);
   return () => {
     scene.background = background;
     for (const [material, color] of colors) material.color.copy(color);
   };
+}
+export function applyImagePrintTheme(scene: Scene, centreline: Group, defaultCentreline: boolean) {
+  return applyImageBackground(scene, centreline, defaultCentreline, true);
 }

@@ -25,7 +25,7 @@ import { canvasPng, composeImage, initializeSaveFile } from './save-image';
 import { AnimationWakeLock } from './screen-wake-lock';
 import { initializeImageSizeDialog } from './image-size';
 import { imageCamera, renderImage } from './render-image';
-import { applyImagePrintTheme } from './image-print-theme';
+import { applyImageBackground, setSceneBackground } from './image-print-theme';
 import './style.css';
 
 initializeAbout();
@@ -35,7 +35,7 @@ const status = document.querySelector<HTMLElement>('#status')!;
 const legend = document.querySelector<HTMLElement>('#legend')!;
 const projectTitle = document.querySelector<HTMLElement>('#project-title')!;
 const detail = document.querySelector<HTMLSelectElement>('#detail')!;
-const scene = new THREE.Scene(); scene.background = new THREE.Color(0x09131c);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x000000);
 let camera: ViewCamera = new THREE.PerspectiveCamera(45, 1, .01, 1e9);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -92,6 +92,13 @@ const surfaceScene = new SurfaceScene(surfaceGroup, invalidateView, error => rep
 initializeSurfaceControls(surfaceScene);
 const centreline = new CentrelineScene(lines, invalidateView, document.querySelector<HTMLCanvasElement>('#station-labels')!);
 initializeCentrelineControls(centreline);
+const backgroundCheckbox = document.querySelector<HTMLInputElement>('#white-background')!;
+backgroundCheckbox.checked = false;
+function updateSceneBackground() {
+  setSceneBackground(scene, lines, backgroundCheckbox.checked, centreline.options.color === 'default');
+  canvas.parentElement!.classList.toggle('image-white-background', backgroundCheckbox.checked);
+}
+backgroundCheckbox.addEventListener('change', () => { updateSceneBackground(); invalidateView(); });
 const indicators = initializeIndicators(canvas, () => camera, () => controls.target);
 const autorotate = initializeAutorotateControls(controls);
 const walker = new WalkerControls(controls, canvas);
@@ -163,7 +170,7 @@ const saveAnimationButton = document.querySelector<HTMLButtonElement>('#save-ani
 for (const button of [saveImageButton, saveAnimationButton]) button.addEventListener('click', () => resize());
 let exportRendering = false;
 const imageSize = initializeImageSizeDialog(saveImageButton, () => ({ width: canvas.width, height: canvas.height }),
-  Math.min(16384, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)), saveAnimationButton);
+  Math.min(16384, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)), saveAnimationButton, () => backgroundCheckbox.checked);
 const imageExport = initializeSaveFile(imageSize.save, async () => {
   const size = imageSize.size(), originalCamera = camera, whiteBackground = imageSize.whiteBackground(), signal = imageSize.signal();
   const scale = imageSize.overlayScale() * size.height / canvas.clientHeight;
@@ -174,8 +181,8 @@ const imageExport = initializeSaveFile(imageSize.save, async () => {
   const main = canvas.parentElement!, previousStyle = main.getAttribute('style');
   const restoreLayout = () => {
     if (previousStyle === null) main.removeAttribute('style'); else main.setAttribute('style', previousStyle);
-    main.classList.remove('image-white-background'); camera = originalCamera;
-    indicators.update(); centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight);
+    main.classList.toggle('image-white-background', backgroundCheckbox.checked); camera = originalCamera;
+    indicators.update(); centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight, undefined, backgroundCheckbox.checked);
   };
   const frame = async (view: ViewCamera) => {
     signal.throwIfAborted(); camera = view; lighting.updateCamera();
@@ -192,7 +199,7 @@ const imageExport = initializeSaveFile(imageSize.save, async () => {
     } finally { rendered.width = 0; rendered.height = 0; restoreLayout(); }
   };
   try {
-    if (whiteBackground) restorePrintTheme = applyImagePrintTheme(scene, lines, centreline.options.color === 'default');
+    restorePrintTheme = applyImageBackground(scene, lines, centreline.options.color === 'default', whiteBackground);
     if (imageSize.animation()) {
       const { animationCamera, encodeAnimation } = await import('./save-animation');
       const target = controls.target.clone(), direction = autorotate.direction, settings = imageSize.animationSettings();
@@ -385,8 +392,9 @@ function frame(time = performance.now()) {
   if (exportRendering) return;
   autorotate.update(time, Boolean(imageSize.dialog.open || largeWorker || (preparationPending && walls.visible) || document.hidden));
   if (sceneDirty) {
+    updateSceneBackground();
     indicators.update();
-    centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight);
+    centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight, undefined, backgroundCheckbox.checked);
   }
   if (preparationPending && !largeWorker && largeScene && largeModel && walls.visible && !loadingError) {
     try {
