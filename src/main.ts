@@ -157,6 +157,8 @@ const menus = initializeMenus(view => {
   setStatusText(status, `Cannot change full screen: ${exceptionMessage(error)}`);
 });
 const saveImageButton = document.querySelector<HTMLButtonElement>('#save-image')!;
+// Apply the collapsed viewport before the dialog reads the default image size.
+saveImageButton.addEventListener('click', () => resize());
 let exportRendering = false;
 const imageSize = initializeImageSizeDialog(saveImageButton, () => ({ width: canvas.width, height: canvas.height }),
   Math.min(8192, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)));

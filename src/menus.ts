@@ -28,6 +28,12 @@ export function initializeMenus(onView: (view: ModelView) => void, onError: (err
     toggle.setAttribute('aria-label', 'Open menu');
   }
 
+  function collapse() {
+    toolbar.classList.add('compact');
+    toggle.hidden = false;
+    close();
+  }
+
   toggle.addEventListener('click', () => {
     if (!menus.hidden) { close(); return; }
     menus.hidden = false; status.hidden = false;
@@ -59,7 +65,7 @@ export function initializeMenus(onView: (view: ModelView) => void, onError: (err
     chooser.value = '';
     chooser.click();
   });
-  document.querySelector('#save-image')!.addEventListener('click', closeDropdowns);
+  document.querySelector('#save-image')!.addEventListener('click', collapse);
   for (const button of Array.from(menus.querySelectorAll<HTMLButtonElement>('[data-view]'))) {
     button.addEventListener('click', () => {
       onView(button.dataset.view as ModelView);
@@ -90,10 +96,6 @@ export function initializeMenus(onView: (view: ModelView) => void, onError: (err
       menus.hidden = false; status.hidden = false; toggle.hidden = true;
       close();
     },
-    collapse() {
-      toolbar.classList.add('compact');
-      toggle.hidden = false;
-      close();
-    },
+    collapse,
   };
 }
