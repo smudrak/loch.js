@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { largeWallMaterial, LargeScene } from '../src/large-scene';
-import { loadWallTexture, setTexturedWalls, wallMaterial } from '../src/wall-material';
+import { applyWallOpacity, loadWallTexture, setTexturedWalls, wallMaterial } from '../src/wall-material';
 import type { LargeModel } from '../src/large-lox';
 
 function compile(material: THREE.Material, source = THREE.ShaderLib.standard) {
@@ -11,6 +11,16 @@ function compile(material: THREE.Material, source = THREE.ShaderLib.standard) {
 }
 
 describe('wall appearance', () => {
+  it('blends walls without occluding geometry behind them and restores opaque depth writes', () => {
+    const material = wallMaterial(new THREE.MeshStandardMaterial());
+    applyWallOpacity(material, true, .25);
+    expect(material.transparent).toBe(true); expect(material.opacity).toBe(.25); expect(material.depthWrite).toBe(false);
+    expect(material.forceSinglePass).toBe(true);
+    applyWallOpacity(material, false, .25);
+    expect(material.transparent).toBe(false); expect(material.opacity).toBe(1); expect(material.depthWrite).toBe(true);
+    applyWallOpacity(material, true, 0); expect(material.opacity).toBe(0); expect(material.depthWrite).toBe(false);
+    applyWallOpacity(material, true, 2); expect(material.opacity).toBe(1); expect(material.transparent).toBe(false);
+  });
   it('shares the texture toggle across small meshes, large meshes, previews, and newly loaded materials', () => {
     const model: LargeModel = { min: [0, 0, 100], max: [1, 1, 110], origin: [0, 0, 105], minZ: 100, maxZ: 110, scraps: 1, triangles: 1, points: 3, shots: [] };
     const small = compile(wallMaterial(new THREE.MeshStandardMaterial({ vertexColors: true })));

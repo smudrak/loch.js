@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { GeometryBatch, LargeModel } from './large-lox';
-import { wallMaterial } from './wall-material';
+import { applyWallOpacity, wallMaterial } from './wall-material';
 
 export function largeWallMaterial(model: LargeModel) {
   // Derivative normals light the triangle soup without a per-vertex normal buffer.
@@ -69,6 +69,11 @@ export class LargeScene {
     const side = enabled ? THREE.FrontSide : THREE.DoubleSide;
     if (this.material.side !== side) { this.material.side = side; this.material.needsUpdate = true; }
     this.pointMaterial.uniforms.cullBackFaces.value = enabled;
+  }
+
+  setAppearance(transparency: boolean, opacity: number) {
+    applyWallOpacity(this.material, transparency, opacity);
+    applyWallOpacity(this.pointMaterial, transparency, opacity);
   }
 
   add(batch: GeometryBatch) {
@@ -142,7 +147,9 @@ export class LargeScene {
       if (entry.high) entry.mesh.geometry.dispose();
       entry.high = false;
     }
-    return [...this.entries].sort((a, b) => camera.position.distanceToSquared(a.center) - camera.position.distanceToSquared(b.center))
+    // Blended batches accumulate from back to front without writing depth.
+    const direction = this.material.transparent ? -1 : 1;
+    return [...this.entries].sort((a, b) => direction * (camera.position.distanceToSquared(a.center) - camera.position.distanceToSquared(b.center)))
       .map(entry => entry.mesh);
   }
 }

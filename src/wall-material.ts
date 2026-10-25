@@ -10,6 +10,14 @@ let textureLoading: Promise<void> | undefined;
 
 export function setTexturedWalls(enabled: boolean) { texturedWalls.value = enabled; }
 
+export function applyWallOpacity(material: THREE.Material, transparency: boolean, opacity: number) {
+  const alpha = transparency ? Math.max(0, Math.min(1, opacity)) : 1;
+  const blended = transparency && alpha < 1;
+  if (material.transparent !== blended) { material.transparent = blended; material.needsUpdate = true; }
+  material.opacity = alpha; material.depthWrite = !blended; material.forceSinglePass = true;
+  if (material instanceof THREE.ShaderMaterial && material.uniforms.opacity) material.uniforms.opacity.value = alpha;
+}
+
 export function loadWallTexture() {
   return textureLoading ??= new Promise<void>((resolve, reject) => {
     new THREE.TextureLoader().load(new URL('./assets/limestone.webp', import.meta.url).href, texture => {

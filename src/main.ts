@@ -8,7 +8,7 @@ import { createHeadlight, initializeLightControls } from './lighting';
 import { WalkerControls } from './walker';
 import { pickModelPoint, pickingLineThreshold } from './model-picking';
 import { initializeFocusGesture } from './focus-gesture';
-import { loadWallTexture, setTexturedWalls, wallMaterial } from './wall-material';
+import { applyWallOpacity, loadWallTexture, setTexturedWalls, wallMaterial } from './wall-material';
 import type { GeometryBatch, LargeModel, LoadProgress } from './large-lox';
 import { largeWallMaterial, LargeScene } from './large-scene';
 import { ProgressiveView } from './progressive-view';
@@ -152,6 +152,26 @@ function applyWallCulling() {
   largeScene?.setCulling(wallsCulling.checked);
 }
 wallsCulling.addEventListener('change', () => { applyWallCulling(); invalidateView(); });
+const wallsTransparency = document.querySelector<HTMLInputElement>('#walls-transparency')!;
+const wallsOpacity = document.querySelector<HTMLInputElement>('#walls-opacity')!;
+wallsTransparency.checked = false; wallsOpacity.value = '50';
+function applyWallAppearance() {
+  const materials = new Set<THREE.Material>();
+  for (const child of walls.children) if (child instanceof THREE.Mesh || child instanceof THREE.Points) {
+    for (const material of Array.isArray(child.material) ? child.material : [child.material]) materials.add(material);
+  }
+  for (const material of materials) applyWallOpacity(material, wallsTransparency.checked, Number(wallsOpacity.value) / 100);
+  largeScene?.setAppearance(wallsTransparency.checked, Number(wallsOpacity.value) / 100);
+}
+function updateWallAppearance() {
+  document.querySelector<HTMLElement>('#walls-opacity-control')!.hidden = !wallsTransparency.checked;
+  wallsOpacity.disabled = !wallsTransparency.checked;
+  document.querySelector<HTMLOutputElement>('#walls-opacity-value')!.value = `${wallsOpacity.value}%`;
+  applyWallAppearance(); invalidateView();
+}
+wallsTransparency.addEventListener('change', updateWallAppearance);
+wallsOpacity.addEventListener('input', updateWallAppearance);
+updateWallAppearance();
 const texturedWalls = document.querySelector<HTMLInputElement>('#textured-walls')!;
 texturedWalls.checked = false;
 texturedWalls.addEventListener('change', () => {
@@ -319,6 +339,7 @@ function draw(model: Model, label: string) {
   for (const surface of model.surfaces) surfaceScene.add(surface, origin);
   updateLegend(model);
   applyWallCulling();
+  applyWallAppearance();
   setStatusText(status, `${label} · ${model.scraps.length} scraps · ${model.shots.length} centerline segments`);
   setCameraView(camera, controls, activeBox, 'fit');
 }
@@ -392,6 +413,7 @@ function loadLargeFile(file: File, id: number) {
         material = largeWallMaterial(model);
         largeScene = new LargeScene(walls, material, model);
         applyWallCulling();
+        applyWallAppearance();
         updateProjectTitle(model.title, file.name);
         centreline.setModel(model, origin);
         updateLegend(model); setCameraView(camera, controls, activeBox, 'fit');

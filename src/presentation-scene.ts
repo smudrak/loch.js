@@ -4,13 +4,15 @@ const checks: Record<string, string> = {
   'scene-vis-centerline-cave': 'centreline-underground', 'scene-vis-centerline-surface': 'centreline-surface', 'scene-vis-centerline-splay': 'centreline-splay',
   'scene-vis-centerline-duplicate': 'centreline-duplicate', 'scene-vis-centerline-station': 'station-all', 'scene-vis-centerline-entrance': 'station-entrance',
   'scene-vis-centerline-fix': 'station-fixed', 'scene-surface-transparency': 'surface-transparency', 'scene-surface-texture': 'surface-image-overlay',
+  'scene-walls-transparency': 'walls-transparency',
 };
-export const presentationControlIds = [...Object.values(checks), 'surface-opacity', 'station-label', 'centreline-color'];
+export const presentationControlIds = [...Object.values(checks), 'surface-opacity', 'walls-opacity', 'station-label', 'centreline-color'];
 const truth = (value: string) => value === 'true' || value === '1';
 export function captureSceneSettings(): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, id] of Object.entries(checks)) result[key] = String(document.querySelector<HTMLInputElement>(`#${id}`)!.checked);
   result['scene-surface-opacity'] = String(Number(document.querySelector<HTMLInputElement>('#surface-opacity')!.value) / 100);
+  result['scene-walls-opacity'] = String(Number(document.querySelector<HTMLInputElement>('#walls-opacity')!.value) / 100);
   const label = document.querySelector<HTMLSelectElement>('#station-label')!.value;
   result['scene-vis-labels'] = String(label !== 'none');
   result['scene-label-comment'] = String(label === 'comments'); result['scene-label-altitude'] = String(label === 'altitude');
@@ -24,12 +26,14 @@ function setControl(id: string, value: string | boolean) {
   const changed = typeof value === 'boolean' ? (element as HTMLInputElement).checked !== value : element.value !== value;
   if (!changed) return;
   if (typeof value === 'boolean') (element as HTMLInputElement).checked = value; else element.value = value;
-  element.dispatchEvent(new Event(id === 'surface-opacity' ? 'input' : 'change', { bubbles: true }));
+  element.dispatchEvent(new Event(id.endsWith('-opacity') ? 'input' : 'change', { bubbles: true }));
 }
 export function applySceneSettings(settings: Record<string, string>) {
   for (const [key, id] of Object.entries(checks)) if (settings[key] !== undefined) setControl(id, truth(settings[key]));
-  const opacity = Number(settings['scene-surface-opacity']);
-  if (settings['scene-surface-opacity'] !== undefined && Number.isFinite(opacity)) setControl('surface-opacity', String(Math.max(0, Math.min(1, opacity)) * 100));
+  for (const type of ['surface', 'walls']) {
+    const key = `scene-${type}-opacity`, opacity = Number(settings[key]);
+    if (settings[key] !== undefined && Number.isFinite(opacity)) setControl(`${type}-opacity`, String(Math.max(0, Math.min(1, opacity)) * 100));
+  }
   if (settings['scene-color-apply-centerline'] !== undefined || settings['scene-color-mode'] !== undefined) {
     const mode = settings['scene-color-mode'];
     if (mode === undefined || mode === '0' || mode === '1') setControl('centreline-color', settings['scene-color-apply-centerline'] !== undefined && !truth(settings['scene-color-apply-centerline']) || mode === '0' ? 'default' : 'altitude');

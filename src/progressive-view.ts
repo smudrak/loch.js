@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { LargeScene } from './large-scene';
 
-/** Accumulate opaque batches into one color/depth buffer for a stationary camera. */
+/** Accumulate wall batches into one color/depth buffer for a stationary camera. */
 export class ProgressiveView {
   private target: THREE.WebGLRenderTarget;
   private copyScene = new THREE.Scene();
@@ -31,7 +31,7 @@ export class ProgressiveView {
     this.surfaceVisible = surface?.visible ?? false;
     this.transparentSurface = Boolean(surface?.children.some(child => (child as THREE.Mesh<THREE.BufferGeometry, THREE.Material>).material.transparent));
     const target = renderer.getRenderTarget(), autoClear = renderer.autoClear;
-    // Blended terrain must be composited once after every opaque wall batch.
+    // Blended terrain must be composited once after every wall batch.
     if (surface && this.transparentSurface && this.batches.length) surface.visible = false;
     try {
       renderer.setRenderTarget(this.target);

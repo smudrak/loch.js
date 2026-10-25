@@ -5,12 +5,12 @@ import { ProgressiveView } from '../src/progressive-view';
 import type { LargeModel } from '../src/large-lox';
 
 describe('stationary view refinement', () => {
-  it.each(['none', 'opaque', 'transparent', 'hidden'])('draws every wall batch once and composites terrain once (%s)', mode => {
+  it.each(['none', 'opaque', 'transparent', 'hidden'].flatMap(mode => [false, true].map(wallTransparency => ({ mode, wallTransparency }))))('draws every wall batch once and composites terrain once ($mode, transparent walls $wallTransparency)', ({ mode, wallTransparency }) => {
     const scene = new THREE.Scene(), group = new THREE.Group();
     scene.add(group); scene.background = new THREE.Color('#09131c');
     const background = scene.background;
     const model: LargeModel = { min: [-1, -1, 0], max: [1, 1, 0], origin: [0, 0, 0], minZ: 0, maxZ: 0, scraps: 1, triangles: 3, points: 9, shots: [] };
-    const walls = new LargeScene(group, new THREE.MeshBasicMaterial(), model);
+    const walls = new LargeScene(group, new THREE.MeshBasicMaterial({ transparent: wallTransparency, opacity: .5, depthWrite: !wallTransparency }), model);
     for (let i = 0; i < 3; i++) walls.add({ positions: new Float32Array([-1, -1, 0, 1, -1, 0, 0, 1, 0]), triangles: 1 });
     const surface = new THREE.Group();
     const terrain = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ transparent: mode !== 'opaque', opacity: .5 }));

@@ -6,6 +6,21 @@ import { BATCH_TRIANGLES, type LargeModel } from '../src/large-lox';
 const model: LargeModel = { min: [0, 0, 0], max: [1, 1, 1], origin: [0, 0, 0], minZ: 0, maxZ: 1, scraps: 1, triangles: 0, points: 0, shots: [] };
 
 describe('large-scene detail control', () => {
+  it('applies opacity to full walls and sampled point uniforms, including later batches', () => {
+    const group = new THREE.Group(), material = largeWallMaterial(model), scene = new LargeScene(group, material, model);
+    scene.setAppearance(true, .3);
+    for (const z of [0, 5]) scene.add({ positions: new Float32Array([0, 0, z, 1, 0, z, 0, 1, z]), triangles: 1 });
+    const points = group.children.filter(child => child instanceof THREE.Points) as THREE.Points<THREE.BufferGeometry, THREE.ShaderMaterial>[];
+    expect(material.opacity).toBe(.3); expect(material.transparent).toBe(true); expect(material.depthWrite).toBe(false);
+    for (const point of points) {
+      expect(point.material.uniforms.opacity.value).toBe(.3); expect(point.material.transparent).toBe(true); expect(point.material.depthWrite).toBe(false);
+    }
+    const camera = new THREE.PerspectiveCamera(); camera.position.set(0, 0, 10);
+    expect(scene.refinementBatches(camera).map(mesh => mesh.geometry.attributes.position.getZ(0))).toEqual([0, 5]);
+    scene.setAppearance(false, .3);
+    expect(scene.refinementBatches(camera).map(mesh => mesh.geometry.attributes.position.getZ(0))).toEqual([5, 0]);
+    expect(points.every(point => point.material.uniforms.opacity.value === 1 && point.material.depthWrite)).toBe(true);
+  });
   it('applies back-face culling to walls and sampled points, including newly loaded batches', () => {
     const group = new THREE.Group(), material = largeWallMaterial(model);
     const scene = new LargeScene(group, material, model);
