@@ -39,7 +39,7 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
     title.textContent = video ? 'Save animation' : 'Save image'; description.hidden = animationOptions.hidden = !video; progressPanel.hidden = true;
     white.closest('label')!.hidden = video; fps.value = '30'; quality.value = 'high';
     describe();
-    progress.value = 0; progressText.textContent = ''; aspect.checked = true;
+    progress.value = 0; progressText.textContent = ''; aspect.checked = !video;
     white.checked = screenWhiteBackground(); scale.value = '100'; width.setCustomValidity(''); dialog.showModal(); width.focus(); width.select();
   };
   button.addEventListener('click', () => open(false));
