@@ -21,6 +21,7 @@ import { initializeIndicators } from './indicators';
 import { displayProjectTitle } from './lox-title';
 import { initializeAutorotateControls } from './autorotate';
 import { modelFileFormat, parseModelFile } from './model-file';
+import { captureImage, initializeSaveImage } from './save-image';
 import './style.css';
 
 initializeAbout();
@@ -44,6 +45,7 @@ const boundingBox = new THREE.Box3Helper(new THREE.Box3(), 0xff0000);
 boundingBox.visible = false;
 scene.add(boundingBox);
 let activeBox = new THREE.Box3();
+let imageName = 'Sample cave';
 let loadId = 0;
 let largeWorker: Worker | undefined;
 let loadingLargeWalls = false;
@@ -151,6 +153,16 @@ const menus = initializeMenus(view => {
   loadingError = true; setStatusProgress(status);
   setStatusText(status, `Cannot change full screen: ${exceptionMessage(error)}`);
 });
+const saveImageButton = document.querySelector<HTMLButtonElement>('#save-image')!;
+const imageExport = initializeSaveImage(saveImageButton, () => {
+  indicators.update(); centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight);
+  lighting.updateCamera();
+  if (progressiveView && !sceneDirty) progressiveView.present();
+  else { largeScene?.update(camera, detail.value === 'full'); renderer.render(scene, camera); }
+  return captureImage(canvas, document.querySelector<HTMLCanvasElement>('#station-labels')!, [
+    document.querySelector<HTMLElement>('#model-indicators')!, document.querySelector<HTMLElement>('#scale-indicator')!,
+  ]);
+}, () => imageName, error => showLoadError(status, error, { phase: 'Saving image', source: 'Rendered view' }));
 const c = new THREE.Color();
 function altitudeColor(z: number, model: Pick<Model, 'minZ' | 'maxZ'>): THREE.Color {
   const t = model.maxZ === model.minZ ? .5 : (z - model.minZ) / (model.maxZ - model.minZ);
@@ -168,6 +180,7 @@ function updateLegend(model: Pick<Model, 'minZ' | 'maxZ'>) {
 }
 function updateProjectTitle(title: string | undefined, filename: string) {
   projectTitle.textContent = displayProjectTitle(title, filename); projectTitle.hidden = false;
+  imageName = filename;
 }
 function draw(model: Model, label: string) {
   largeScene = undefined; largeModel = undefined; preparationPending = false;
@@ -321,6 +334,8 @@ const resize = () => { const w = canvas.clientWidth, h = canvas.clientHeight; if
 new ResizeObserver(resize).observe(canvas); resize();
 function frame(time = performance.now()) {
   requestAnimationFrame(frame);
+  saveImageButton.disabled = imageExport.busy || activeBox.isEmpty() || Boolean(largeWorker)
+    || loadingLargeWalls || preparationPending || surfaceScene.loading;
   autorotate.update(time, Boolean(largeWorker || (preparationPending && walls.visible) || document.hidden));
   if (sceneDirty) {
     indicators.update();

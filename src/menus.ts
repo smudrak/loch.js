@@ -59,6 +59,7 @@ export function initializeMenus(onView: (view: ModelView) => void, onError: (err
     chooser.value = '';
     chooser.click();
   });
+  document.querySelector('#save-image')!.addEventListener('click', closeDropdowns);
   for (const button of Array.from(menus.querySelectorAll<HTMLButtonElement>('[data-view]'))) {
     button.addEventListener('click', () => {
       onView(button.dataset.view as ModelView);

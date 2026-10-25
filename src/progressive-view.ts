@@ -79,6 +79,9 @@ export class ProgressiveView {
     }
   }
 
+  /** Re-present the accumulated view for export without restarting refinement. */
+  present() { this.renderer.render(this.copyScene, this.copyCamera); }
+
   dispose() {
     this.target.dispose(); this.copyMesh.geometry.dispose(); this.copyMesh.material.dispose();
   }

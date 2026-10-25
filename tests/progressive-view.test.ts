@@ -57,6 +57,13 @@ describe('stationary view refinement', () => {
     expect(scene.background).toBe(background);
     expect(renderer.autoClear).toBe(true);
     expect(target).toBeNull();
+    const passCount = passes.length;
+    view.present();
+    expect(passes).toHaveLength(passCount + 1);
+    expect(passes.at(-1)?.target).toBeNull();
+    expect(passes.at(-1)?.meshes).toHaveLength(1);
+    expect(group.children.every(child => !child.visible)).toBe(true);
+    expect(disposed).toBe(3); expect(view.progress).toBe(1);
     view.dispose();
   });
 });
