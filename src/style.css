@@ -118,3 +118,5 @@ header.compact:not(.collapsed)~main #project-title{top:calc(34px + 1.4rem + 16px
 #animation-description{font-size:.85rem;color:#b8ccd9;line-height:1.5}
 #animation-export-progress progress{display:block;width:100%;margin-bottom:8px;accent-color:#8ed9ff}
 #animation-progress-text{font-size:.85rem}
+
+#animation-quality{width:120px;padding:6px;border:1px solid #678599;border-radius:4px;background:#09131c;color:inherit;font:inherit}

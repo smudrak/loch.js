@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
-import { ANIMATION_FPS, ANIMATION_FRAMES, animationCamera, encodeAnimation } from '../src/save-animation';
-const encoder = vi.hoisted(() => ({ codec: vi.fn(), add: vi.fn(), cancel: vi.fn(), finalize: vi.fn(), close: vi.fn() }));
+import { ANIMATION_FPS, ANIMATION_FRAMES, animationBitrate, animationCamera, encodeAnimation } from '../src/save-animation';
+const encoder = vi.hoisted(() => ({ codec: vi.fn(), add: vi.fn(), cancel: vi.fn(), finalize: vi.fn(), close: vi.fn(), quality: vi.fn(), track: vi.fn() }));
 vi.mock('mediabunny', () => ({
-  Quality: class {}, Mp4OutputFormat: class {}, BufferTarget: class { buffer: ArrayBuffer | null = null; },
+  Quality: class { constructor(options: unknown) { encoder.quality(options); } }, Mp4OutputFormat: class {}, BufferTarget: class { buffer: ArrayBuffer | null = null; },
   CanvasSource: class { add = encoder.add; close = encoder.close; },
   Output: class {
     state = 'pending'; target: { buffer: ArrayBuffer | null };
     constructor(options: { target: { buffer: ArrayBuffer | null } }) { this.target = options.target; }
-    addVideoTrack() {}
+    addVideoTrack(_source: unknown, options: unknown) { encoder.track(options); }
     async start() { this.state = 'started'; }
     async finalize() { encoder.finalize(); this.state = 'finalized'; this.target.buffer = new ArrayBuffer(16); }
     async cancel() { encoder.cancel(); this.state = 'canceled'; }
@@ -48,6 +48,27 @@ describe('360-degree MP4 animation', () => {
     expect(encoder.add.mock.calls[449]).toEqual([449 / ANIMATION_FPS, 1 / ANIMATION_FPS]);
     expect(progress).toHaveBeenLastCalledWith(450, 450); expect(frames.every(frame => frame.width === 0 && frame.height === 0)).toBe(true);
     expect(encoder.finalize).toHaveBeenCalledTimes(1); expect(encoder.cancel).not.toHaveBeenCalled(); expect(encoder.close).toHaveBeenCalledTimes(1);
+  });
+  it('applies custom FPS to frame count, timestamps and rotation, and passes the selected encoding quality', async () => {
+    const render = vi.fn(async () => ({ width: 2, height: 2 } as HTMLCanvasElement)), progress = vi.fn();
+    await encodeAnimation({ width: 2, height: 2 }, render, new AbortController().signal, progress, { fps: 2, quality: 'low' });
+    expect(render).toHaveBeenCalledTimes(30); expect(encoder.add.mock.calls[29]).toEqual([14.5, .5]);
+    expect(encoder.track).toHaveBeenCalledWith({ frameRate: 2 }); expect(progress).toHaveBeenLastCalledWith(30, 30);
+    expect(encoder.quality).toHaveBeenCalledWith({ bitrate: 1_000_000 });
+    const camera = new PerspectiveCamera(); camera.up.set(0, 0, 1); camera.position.set(10, 0, 4); camera.lookAt(0, 0, 0);
+    const complete = animationCamera(camera, new Vector3(), { width: 640, height: 480 }, 30, 1, 2);
+    expect(complete.position.distanceTo(camera.position)).toBeLessThan(1e-9);
+  });
+  it('offers increasingly higher bitrates for Low, Medium and High quality', () => {
+    const size = { width: 1920, height: 1080 };
+    const low = animationBitrate(size, 30, 'low'), medium = animationBitrate(size, 30, 'medium'), high = animationBitrate(size, 30, 'high');
+    expect(low).toBeLessThan(medium); expect(medium).toBeLessThan(high);
+    expect(animationBitrate(size, 60, 'high')).toBeGreaterThan(high);
+  });
+  it.each([0, 121, 1.5, NaN])('rejects invalid FPS %s before rendering', async fps => {
+    const render = vi.fn();
+    await expect(encodeAnimation({ width: 2, height: 2 }, render, new AbortController().signal, vi.fn(), { fps, quality: 'high' })).rejects.toThrow('FPS');
+    expect(render).not.toHaveBeenCalled();
   });
   it('cancels rendering without finalizing or retaining raw frames', async () => {
     const controller = new AbortController(), frames: HTMLCanvasElement[] = [];

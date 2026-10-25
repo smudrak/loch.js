@@ -195,8 +195,8 @@ const imageExport = initializeSaveFile(imageSize.save, async () => {
     if (whiteBackground) restorePrintTheme = applyImagePrintTheme(scene, lines, centreline.options.color === 'default');
     if (imageSize.animation()) {
       const { animationCamera, encodeAnimation } = await import('./save-animation');
-      const target = controls.target.clone(), direction = autorotate.direction;
-      return await encodeAnimation(size, index => frame(animationCamera(originalCamera, target, size, index, direction)), signal, imageSize.progress);
+      const target = controls.target.clone(), direction = autorotate.direction, settings = imageSize.animationSettings();
+      return await encodeAnimation(size, index => frame(animationCamera(originalCamera, target, size, index, direction, settings.fps)), signal, imageSize.progress, settings);
     }
     const canvas = await frame(imageCamera(originalCamera, size));
     try { return await canvasPng(canvas); } finally { canvas.width = 0; canvas.height = 0; }

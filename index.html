@@ -83,6 +83,10 @@
   <label for="image-overlay-scale">Indicators and labels (%) <input id="image-overlay-scale" title="100% preserves on-screen proportions, scaling with image height" type="number" min="10" max="1000" step="1" value="100" required/></label>
   <label><input id="image-aspect" type="checkbox" checked/> Keep aspect ratio</label>
   <label><input id="image-white-background" type="checkbox"/> White background</label>
+  <div id="animation-options" hidden>
+    <label for="animation-fps">FPS <input id="animation-fps" type="number" min="1" max="120" step="1" value="30" required/></label>
+    <label for="animation-quality">Quality <select id="animation-quality"><option value="low">Low</option><option value="medium">Medium</option><option value="high" selected>High</option></select></label>
+  </div>
   <p id="animation-description" hidden>360° rotation · 15 seconds · 30 fps</p>
   <div id="animation-export-progress" hidden><progress id="animation-progress" value="0" max="450"></progress><span id="animation-progress-text" role="status"></span></div>
   <div class="image-save-actions"><button id="image-save-cancel" type="button">Cancel</button><button id="image-save-confirm" type="button">Save…</button></div>

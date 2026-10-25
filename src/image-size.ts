@@ -1,3 +1,5 @@
+export type AnimationQuality = 'low' | 'medium' | 'high';
+export type AnimationSettings = { fps: number; quality: AnimationQuality };
 export type ImageSize = { width: number; height: number };
 export const MAX_IMAGE_PIXELS = 128 * 1024 * 1024;
 export function validImageSize(size: ImageSize, maxDimension: number) {
@@ -17,6 +19,9 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
   const save = document.querySelector<HTMLButtonElement>('#image-save-confirm')!;
   const cancel = document.querySelector<HTMLButtonElement>('#image-save-cancel')!;
   const description = document.querySelector<HTMLElement>('#animation-description')!;
+  const animationOptions = document.querySelector<HTMLElement>('#animation-options')!;
+  const fps = document.querySelector<HTMLInputElement>('#animation-fps')!;
+  const quality = document.querySelector<HTMLSelectElement>('#animation-quality')!;
   const progressPanel = document.querySelector<HTMLElement>('#animation-export-progress')!;
   const progress = document.querySelector<HTMLProgressElement>('#animation-progress')!;
   const progressText = document.querySelector<HTMLElement>('#animation-progress-text')!;
@@ -26,11 +31,13 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
   for (const input of [width, height]) input.max = String(maxDimension);
   const open = (video: boolean) => {
     animation = video; abort = new AbortController();
-    const current = currentSize(), factor = video ? Math.min(1, 1920 / current.width, 1080 / current.height) : 1;
-    width.value = String(round(current.width * factor)); height.value = String(round(current.height * factor));
+    const current = video ? { width: 1920, height: 1080 } : currentSize();
+    width.value = String(round(current.width)); height.value = String(round(current.height));
     for (const input of [width, height]) { input.min = video ? '2' : '1'; input.step = video ? '2' : '1'; }
     ratio = width.valueAsNumber / height.valueAsNumber;
-    title.textContent = video ? 'Save animation' : 'Save image'; description.hidden = !video; progressPanel.hidden = true;
+    title.textContent = video ? 'Save animation' : 'Save image'; description.hidden = animationOptions.hidden = !video; progressPanel.hidden = true;
+    white.closest('label')!.hidden = video; fps.value = '30'; quality.value = 'high';
+    description.textContent = '360° rotation · 15 seconds · 30 fps';
     progress.value = 0; progressText.textContent = ''; aspect.checked = true;
     white.checked = false; scale.value = '100'; width.setCustomValidity(''); dialog.showModal(); width.focus(); width.select();
   };
@@ -44,6 +51,7 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
     width.setCustomValidity('');
     if (aspect.checked) width.value = String(round(height.valueAsNumber * ratio));
   });
+  fps.addEventListener('input', () => { description.textContent = `360° rotation · 15 seconds · ${fps.value} fps`; });
   aspect.addEventListener('change', () => { if (aspect.checked) ratio = width.valueAsNumber / height.valueAsNumber; });
   save.addEventListener('click', event => {
     const dimensions = size();
@@ -51,7 +59,7 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
     width.setCustomValidity(valid ? '' : `Use ${animation ? 'even' : 'whole'}-pixel dimensions up to ${maxDimension} per side and 128 megapixels total.`);
     if (!form.reportValidity()) { event.stopImmediatePropagation(); return; }
     busy = true; save.textContent = 'Saving…'; cancel.disabled = !animation;
-    width.disabled = height.disabled = aspect.disabled = scale.disabled = white.disabled = true;
+    width.disabled = height.disabled = aspect.disabled = scale.disabled = white.disabled = fps.disabled = quality.disabled = true;
     if (animation) { progressPanel.hidden = false; progressText.textContent = 'Preparing MP4 encoder…'; }
   });
   form.addEventListener('submit', event => { event.preventDefault(); if (!busy) save.click(); });
@@ -62,12 +70,13 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
   cancel.addEventListener('click', stop);
   dialog.addEventListener('cancel', event => { if (busy) { event.preventDefault(); if (animation) stop(); } });
   return { dialog, save, size, animation: () => animation, signal: () => abort.signal,
-    overlayScale: () => scale.valueAsNumber / 100, whiteBackground: () => white.checked,
+    overlayScale: () => scale.valueAsNumber / 100, whiteBackground: () => !animation && white.checked,
+    animationSettings: (): AnimationSettings => ({ fps: fps.valueAsNumber, quality: quality.value as AnimationQuality }),
     progress(completed: number, total: number) {
       progress.max = total; progress.value = completed;
       progressText.textContent = completed === total ? 'Finalizing MP4…' : `Rendering frame ${completed} of ${total} (${Math.round(completed / total * 100)}%)`;
     }, finish() {
       busy = false; save.textContent = 'Save…'; cancel.disabled = false;
-      width.disabled = height.disabled = aspect.disabled = scale.disabled = white.disabled = false; save.disabled = false; dialog.close();
+      width.disabled = height.disabled = aspect.disabled = scale.disabled = white.disabled = fps.disabled = quality.disabled = false; save.disabled = false; dialog.close();
     } };
 }
