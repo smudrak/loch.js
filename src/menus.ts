@@ -13,6 +13,20 @@ export function initializeMenus(onView: (view: ModelView) => void, onError: (err
   const desktop = (window as Window & { __TAURI__?: DesktopAPI }).__TAURI__?.window.getCurrentWindow();
   let desktopFullscreen = false;
 
+  function fitDropdowns() {
+    const viewport = window.visualViewport;
+    const bottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+    for (const group of groups) {
+      if (!group.open) continue;
+      const panel = group.querySelector<HTMLElement>(':scope > .menu-items')!;
+      panel.style.setProperty('--menu-max-height', `${Math.max(0, bottom - panel.getBoundingClientRect().top - 8)}px`);
+    }
+  }
+  new ResizeObserver(fitDropdowns).observe(toolbar);
+  window.addEventListener('resize', fitDropdowns);
+  window.visualViewport?.addEventListener('resize', fitDropdowns);
+  window.visualViewport?.addEventListener('scroll', fitDropdowns);
+
   function closeDropdowns() {
     menus.querySelectorAll<HTMLDetailsElement>('details').forEach(group => { group.open = false; });
   }
@@ -44,6 +58,7 @@ export function initializeMenus(onView: (view: ModelView) => void, onError: (err
   for (const group of groups) {
     group.addEventListener('toggle', () => {
       if (group.open) for (const other of groups) if (other !== group) other.open = false;
+      fitDropdowns();
     });
   }
   document.addEventListener('pointerdown', event => {
