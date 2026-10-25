@@ -37,6 +37,7 @@ describe('360-degree MP4 animation', () => {
     const reverse = animationCamera(camera, target, { width: 640, height: 480 }, ANIMATION_FRAMES / 4, -1);
     expect(reverse.position.distanceTo(new Vector3(3, 11, 4))).toBeLessThan(1e-9);
   });
+  // Real timer yields for 450 frames can exceed 5 seconds on Windows CI runners.
   it('encodes exactly 450 sequential frames over 15 seconds and releases each raw frame', async () => {
     const frames: HTMLCanvasElement[] = [];
     const render = vi.fn(async () => { const image = { width: 2, height: 2 } as HTMLCanvasElement; frames.push(image); return image; });
@@ -48,7 +49,7 @@ describe('360-degree MP4 animation', () => {
     expect(encoder.add.mock.calls[449]).toEqual([449 / ANIMATION_FPS, 1 / ANIMATION_FPS]);
     expect(progress).toHaveBeenLastCalledWith(450, 450); expect(frames.every(frame => frame.width === 0 && frame.height === 0)).toBe(true);
     expect(encoder.finalize).toHaveBeenCalledTimes(1); expect(encoder.cancel).not.toHaveBeenCalled(); expect(encoder.close).toHaveBeenCalledTimes(1);
-  });
+  }, 30_000);
   it('applies custom FPS to frame count, timestamps and rotation, and passes the selected encoding quality', async () => {
     const render = vi.fn(async () => ({ width: 2, height: 2 } as HTMLCanvasElement)), progress = vi.fn();
     await encodeAnimation({ width: 2, height: 2 }, render, new AbortController().signal, progress, { fps: 2, quality: 'low' });
