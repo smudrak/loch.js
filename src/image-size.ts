@@ -1,5 +1,5 @@
 export type ImageSize = { width: number; height: number };
-export const MAX_IMAGE_PIXELS = 32 * 1024 * 1024;
+export const MAX_IMAGE_PIXELS = 128 * 1024 * 1024;
 export function validImageSize(size: ImageSize, maxDimension: number) {
   return Number.isInteger(size.width) && Number.isInteger(size.height) && size.width > 0 && size.height > 0
     && size.width <= maxDimension && size.height <= maxDimension && size.width * size.height <= MAX_IMAGE_PIXELS;
@@ -32,7 +32,7 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
   });
   aspect.addEventListener('change', () => { if (aspect.checked) ratio = width.valueAsNumber / height.valueAsNumber; });
   save.addEventListener('click', event => {
-    width.setCustomValidity(validImageSize(size(), maxDimension) ? '' : `Use whole-pixel dimensions up to ${maxDimension} per side and 32 megapixels total.`);
+    width.setCustomValidity(validImageSize(size(), maxDimension) ? '' : `Use whole-pixel dimensions up to ${maxDimension} per side and 128 megapixels total.`);
     if (!form.reportValidity()) { event.stopImmediatePropagation(); return; }
     busy = true; save.textContent = 'Saving…'; cancel.disabled = true; width.disabled = height.disabled = aspect.disabled = scale.disabled = white.disabled = true;
   });

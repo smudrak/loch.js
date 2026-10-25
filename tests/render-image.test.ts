@@ -7,8 +7,12 @@ afterEach(() => vi.unstubAllGlobals());
 describe('image size and independent rendering', () => {
   it('rejects invalid, excessive and fractional pixel dimensions', () => {
     expect(validImageSize({ width: 1920, height: 1080 }, 8192)).toBe(true);
+    expect(validImageSize({ width: 8192, height: 8192 }, 16384)).toBe(true);
+    expect(validImageSize({ width: 16384, height: 8192 }, 16384)).toBe(true);
+    expect(validImageSize({ width: 16384, height: 8193 }, 16384)).toBe(false);
+    expect(validImageSize({ width: 16385, height: 1 }, 16384)).toBe(false);
     for (const size of [{ width: 0, height: 100 }, { width: NaN, height: 100 }, { width: 1.5, height: 100 },
-      { width: 8193, height: 1 }, { width: 8192, height: 8192 }]) expect(validImageSize(size, 8192)).toBe(false);
+      { width: 8193, height: 1 }]) expect(validImageSize(size, 8192)).toBe(false);
     expect(validImageSize({ width: 4096, height: 2048 }, 2048)).toBe(false);
   });
   it.each([false, true])('clones projection for the chosen aspect without moving the live camera (orthographic %s)', ortho => {

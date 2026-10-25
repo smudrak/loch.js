@@ -161,7 +161,7 @@ const saveImageButton = document.querySelector<HTMLButtonElement>('#save-image')
 saveImageButton.addEventListener('click', () => resize());
 let exportRendering = false;
 const imageSize = initializeImageSizeDialog(saveImageButton, () => ({ width: canvas.width, height: canvas.height }),
-  Math.min(8192, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)));
+  Math.min(16384, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)));
 const imageExport = initializeSaveImage(imageSize.save, async () => {
   const size = imageSize.size(), originalCamera = camera, whiteBackground = imageSize.whiteBackground();
   const scale = imageSize.overlayScale() * size.height / canvas.clientHeight;
