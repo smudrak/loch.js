@@ -11,6 +11,6 @@ export function parseModelFile(buffer: ArrayBuffer, filename: string) {
     case 'lox': return parseLox(buffer);
     case '3d': return parseSurvex(buffer);
     case 'plt': return parseCompass(buffer);
-    default: throw new Error('Unsupported file type. Open a .lox, .3d or .plt file.');
+    default: throw new Error('Unsupported file type. Open a .lox, .3d, .plt or Loch animation XML file.');
   }
 }

@@ -30,6 +30,7 @@ import { initializePresentation } from './presentation-ui';
 import { capturePresentationCamera, presentationCamera, type PresentationPose } from './presentation-timeline';
 import { applySceneSettings, snapshotPresentationControls } from './presentation-scene';
 import { PresentationGuides } from './presentation-guides';
+import { readPresentationXml } from './presentation-file';
 import './style.css';
 
 initializeAbout();
@@ -57,6 +58,7 @@ let activeBox = new THREE.Box3();
 const activeOrigin = new THREE.Vector3();
 let imageName = 'Sample cave';
 let loadId = 0;
+let openRequest = 0;
 let largeWorker: Worker | undefined;
 let loadingLargeWalls = false;
 let largeScene: LargeScene | undefined;
@@ -349,7 +351,15 @@ function draw(model: Model, label: string) {
   setCameraView(camera, controls, activeBox, 'fit');
 }
 async function loadFile(file: File) {
-  if (/\.lxa$/i.test(file.name)) { await presentation.loadFile(file); return; }
+  const request = ++openRequest;
+  try {
+    const xml = await readPresentationXml(file);
+    if (request !== openRequest) return;
+    if (xml !== undefined) { await presentation.loadFile(file, xml); return; }
+  } catch (error) {
+    if (request === openRequest) { menus.expand(); showLoadError(status, error, { phase: 'Identifying file', file }); }
+    return;
+  }
   presentation.player.stop(); presentation.resetScene();
   const id = ++loadId;
   collapseAfterRender = false;
@@ -464,7 +474,7 @@ document.querySelector<HTMLInputElement>('#bounding-box')!.addEventListener('cha
   invalidateView();
 });
 window.addEventListener('dragover', e => e.preventDefault());
-window.addEventListener('drop', e => { e.preventDefault(); const file = e.dataTransfer?.files[0]; if (file && (modelFileFormat(file.name) || /\.lxa$/i.test(file.name))) void loadFile(file); });
+window.addEventListener('drop', e => { e.preventDefault(); const file = e.dataTransfer?.files[0]; if (file) void loadFile(file); });
 const resize = () => { const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); resizeCamera(camera, w / h); invalidateView(); };
 new ResizeObserver(resize).observe(canvas); resize();
 function frame(time = performance.now()) {

@@ -3,6 +3,7 @@ import { PresentationTimeline, type PresentationPose } from './presentation-time
 import { PresentationPlayer } from './presentation-player';
 import { applySceneSettings, captureSceneSettings } from './presentation-scene';
 import { initializeSaveFile } from './save-image';
+import { readPresentationXml } from './presentation-file';
 
 type Host = { capture(): LxaCamera; walker(): boolean; apply(pose: PresentationPose): void; canPlay(): boolean;
   playing(active: boolean): void; error(error: unknown, file?: File): void };
@@ -89,10 +90,12 @@ export function initializePresentation(host: Host) {
     edit.close(); select();
   });
   globalThis.document.querySelector('#presentation-edit-cancel')!.addEventListener('click', () => edit.close());
-  async function loadFile(file: File) {
+  async function loadFile(file: File, xml?: string) {
     player.stop();
     try {
-      const next = Presentation.parse(await file.text(), host.capture());
+      const source = xml ?? await readPresentationXml(file);
+      if (source === undefined) throw new Error('Not a LochPresentation animation XML file.');
+      const next = Presentation.parse(source, host.capture());
       document = next; filename = file.name; dirty = false; rebuild(0); select();
       if (!panel.open) panel.show();
     } catch (error) { host.error(error, file); }
