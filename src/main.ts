@@ -160,7 +160,8 @@ let exportRendering = false;
 const imageSize = initializeImageSizeDialog(saveImageButton, () => ({ width: canvas.width, height: canvas.height }),
   Math.min(8192, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)));
 const imageExport = initializeSaveImage(imageSize.save, async () => {
-  const size = imageSize.size(), originalCamera = camera;
+  const size = imageSize.size(), scale = imageSize.overlayScale(), originalCamera = camera;
+  const overlaySize = { width: size.width / scale, height: size.height / scale };
   exportRendering = true; autorotate.resetTime();
   let rendered: HTMLCanvasElement | undefined;
   const main = canvas.parentElement!, previousStyle = main.getAttribute('style');
@@ -168,11 +169,11 @@ const imageExport = initializeSaveImage(imageSize.save, async () => {
     camera = imageCamera(originalCamera, size); lighting.updateCamera();
     rendered = await renderImage(renderer, scene, camera, size, walls.visible ? largeScene : undefined, surfaceGroup);
     // Lay out overlays at the export size only while making their frozen snapshot.
-    main.style.cssText += `;position:absolute;width:${size.width}px;height:${size.height}px;flex:none;`;
-    indicators.update(); centreline.updateLabels(camera, size.width, size.height, 1);
+    main.style.cssText += `;position:absolute;width:${overlaySize.width}px;height:${overlaySize.height}px;flex:none;`;
+    indicators.update(overlaySize.height); centreline.updateLabels(camera, overlaySize.width, overlaySize.height, scale);
     const result = captureImage(rendered, document.querySelector<HTMLCanvasElement>('#station-labels')!, [
       document.querySelector<HTMLElement>('#model-indicators')!, document.querySelector<HTMLElement>('#scale-indicator')!,
-    ], size);
+    ], overlaySize);
     if (previousStyle === null) main.removeAttribute('style'); else main.setAttribute('style', previousStyle);
     camera = originalCamera;
     indicators.update(); centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight);

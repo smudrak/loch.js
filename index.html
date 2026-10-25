@@ -80,6 +80,7 @@
 </aside><aside id="scale-indicator" class="scale-indicator" role="img" aria-label="View scale"><span id="scale-value"></span><div id="scale-ruler" class="scale-ruler"></div></aside></main><footer id="status" role="status">Loading sample cave…</footer></div><dialog id="image-size-dialog" aria-labelledby="image-size-title"><h2 id="image-size-title">Save image</h2><form>
   <label for="image-width">Width (pixels) <input id="image-width" type="number" min="1" step="1" required/></label>
   <label for="image-height">Height (pixels) <input id="image-height" type="number" min="1" step="1" required/></label>
+  <label for="image-overlay-scale">Indicators and labels (%) <input id="image-overlay-scale" type="number" min="10" max="1000" step="1" value="100" required/></label>
   <label><input id="image-aspect" type="checkbox" checked/> Keep aspect ratio</label>
   <div class="image-save-actions"><button id="image-save-cancel" type="button">Cancel</button><button id="image-save-confirm" type="button">Save…</button></div>
 </form></dialog><dialog id="about-dialog" aria-labelledby="about-title"><h2 id="about-title">About loch.js</h2><dl><dt>Version</dt><dd id="app-version"></dd><dt>Commit</dt><dd><code id="build-commit"></code></dd><dt>Built</dt><dd><time id="build-date"></time></dd></dl><form method="dialog"><button autofocus>Close</button></form></dialog><script type="module" src="/src/main.ts"></script></body></html>
