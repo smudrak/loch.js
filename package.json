@@ -11,6 +11,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "mediabunny": "^1.62.1",
     "three": "^0.180.0"
   },
   "devDependencies": {

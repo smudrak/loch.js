@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><meta name="theme-color" content="#162531"/><link rel="icon" type="image/svg+xml" href="/icon.svg"/><title>loch.js</title></head><body><div id="app"><header id="toolbar">
   <h1><button id="about-button" type="button" aria-label="About loch.js" aria-haspopup="dialog" aria-controls="about-dialog">loch.js</button></h1>
   <nav id="menus" aria-label="Main menu">
-    <details class="menu"><summary>File</summary><div class="menu-items"><button id="open" type="button">Open…</button><button id="save-image" type="button" disabled>Save image…</button></div></details>
+    <details class="menu"><summary>File</summary><div class="menu-items"><button id="open" type="button">Open…</button><button id="save-image" type="button" disabled>Save image…</button><button id="save-animation" type="button" disabled>Save animation…</button></div></details>
     <details class="menu"><summary>Scene</summary><div class="menu-items">
       <details class="control-group"><summary>Visibility</summary><div class="group-items">
         <label><input id="bounding-box" type="checkbox" checked/> Bounding box</label>
@@ -83,5 +83,7 @@
   <label for="image-overlay-scale">Indicators and labels (%) <input id="image-overlay-scale" title="100% preserves on-screen proportions, scaling with image height" type="number" min="10" max="1000" step="1" value="100" required/></label>
   <label><input id="image-aspect" type="checkbox" checked/> Keep aspect ratio</label>
   <label><input id="image-white-background" type="checkbox"/> White background</label>
+  <p id="animation-description" hidden>360° rotation · 15 seconds · 30 fps</p>
+  <div id="animation-export-progress" hidden><progress id="animation-progress" value="0" max="450"></progress><span id="animation-progress-text" role="status"></span></div>
   <div class="image-save-actions"><button id="image-save-cancel" type="button">Cancel</button><button id="image-save-confirm" type="button">Save…</button></div>
 </form></dialog><dialog id="about-dialog" aria-labelledby="about-title"><h2 id="about-title">About loch.js</h2><dl><dt>Version</dt><dd id="app-version"></dd><dt>Commit</dt><dd><code id="build-commit"></code></dd><dt>Built</dt><dd><time id="build-date"></time></dd></dl><form method="dialog"><button autofocus>Close</button></form></dialog><script type="module" src="/src/main.ts"></script></body></html>

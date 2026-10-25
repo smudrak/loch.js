@@ -15,6 +15,11 @@ describe('image size and independent rendering', () => {
       { width: 8193, height: 1 }]) expect(validImageSize(size, 8192)).toBe(false);
     expect(validImageSize({ width: 4096, height: 2048 }, 2048)).toBe(false);
   });
+  it('cancels before allocating export resources when the signal is already aborted', async () => {
+    const controller = new AbortController(); controller.abort();
+    await expect(renderImage({} as THREE.WebGLRenderer, new THREE.Scene(), new THREE.PerspectiveCamera(), { width: 1920, height: 1080 },
+      undefined, undefined, controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+  });
   it.each([false, true])('clones projection for the chosen aspect without moving the live camera (orthographic %s)', ortho => {
     const source = ortho ? new THREE.OrthographicCamera(-4, 4, 3, -3, .01, 1000) : new THREE.PerspectiveCamera(45, 4 / 3, .01, 1000);
     source.position.set(5, 6, 7); source.lookAt(0, 0, 0); source.zoom = 2; source.updateProjectionMatrix();

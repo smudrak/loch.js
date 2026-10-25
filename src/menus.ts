@@ -50,7 +50,7 @@ export function initializeMenus(onView: (view: ModelView) => void, onError: (err
     if (!toolbar.contains(event.target as Node)) close();
   });
   document.addEventListener('keydown', event => {
-    if (event.key !== 'Escape') return;
+    if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
     if (groups.some(group => group.open) || (!toggle.hidden && !menus.hidden)) {
       close();
       if (!toggle.hidden) toggle.focus();
@@ -65,7 +65,7 @@ export function initializeMenus(onView: (view: ModelView) => void, onError: (err
     chooser.value = '';
     chooser.click();
   });
-  document.querySelector('#save-image')!.addEventListener('click', collapse);
+  for (const id of ['#save-image', '#save-animation']) document.querySelector(id)!.addEventListener('click', collapse);
   for (const button of Array.from(menus.querySelectorAll<HTMLButtonElement>('[data-view]'))) {
     button.addEventListener('click', () => {
       onView(button.dataset.view as ModelView);

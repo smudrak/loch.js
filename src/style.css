@@ -114,3 +114,7 @@ header.compact:not(.collapsed)~main #project-title{top:calc(34px + 1.4rem + 16px
 .image-white-background .tilt-direction{stroke:#255a73}
 .image-white-background .tilt-tip{fill:#255a73}
 .image-white-background .scale-ruler{border-color:#162531;background:linear-gradient(to right,#162531 25%,#fff 25% 50%,#162531 50% 75%,#fff 75%)}
+
+#animation-description{font-size:.85rem;color:#b8ccd9;line-height:1.5}
+#animation-export-progress progress{display:block;width:100%;margin-bottom:8px;accent-color:#8ed9ff}
+#animation-progress-text{font-size:.85rem}

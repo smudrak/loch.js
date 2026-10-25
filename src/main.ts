@@ -21,7 +21,8 @@ import { initializeIndicators } from './indicators';
 import { displayProjectTitle } from './lox-title';
 import { initializeAutorotateControls } from './autorotate';
 import { modelFileFormat, parseModelFile } from './model-file';
-import { captureImage, initializeSaveImage } from './save-image';
+import { canvasPng, composeImage, initializeSaveFile } from './save-image';
+import { AnimationWakeLock } from './screen-wake-lock';
 import { initializeImageSizeDialog } from './image-size';
 import { imageCamera, renderImage } from './render-image';
 import { applyImagePrintTheme } from './image-print-theme';
@@ -157,42 +158,56 @@ const menus = initializeMenus(view => {
   setStatusText(status, `Cannot change full screen: ${exceptionMessage(error)}`);
 });
 const saveImageButton = document.querySelector<HTMLButtonElement>('#save-image')!;
-// Apply the collapsed viewport before the dialog reads the default image size.
-saveImageButton.addEventListener('click', () => resize());
+const saveAnimationButton = document.querySelector<HTMLButtonElement>('#save-animation')!;
+// Apply the collapsed viewport before the dialog reads the default export size.
+for (const button of [saveImageButton, saveAnimationButton]) button.addEventListener('click', () => resize());
 let exportRendering = false;
 const imageSize = initializeImageSizeDialog(saveImageButton, () => ({ width: canvas.width, height: canvas.height }),
-  Math.min(16384, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)));
-const imageExport = initializeSaveImage(imageSize.save, async () => {
-  const size = imageSize.size(), originalCamera = camera, whiteBackground = imageSize.whiteBackground();
+  Math.min(16384, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)), saveAnimationButton);
+const imageExport = initializeSaveFile(imageSize.save, async () => {
+  const size = imageSize.size(), originalCamera = camera, whiteBackground = imageSize.whiteBackground(), signal = imageSize.signal();
   const scale = imageSize.overlayScale() * size.height / canvas.clientHeight;
   const overlaySize = { width: size.width / scale, height: size.height / scale };
   exportRendering = true; autorotate.resetTime();
-  let rendered: HTMLCanvasElement | undefined;
   let restorePrintTheme: (() => void) | undefined;
+  const wakeLock = new AnimationWakeLock(); wakeLock.enabled = imageSize.animation();
   const main = canvas.parentElement!, previousStyle = main.getAttribute('style');
+  const restoreLayout = () => {
+    if (previousStyle === null) main.removeAttribute('style'); else main.setAttribute('style', previousStyle);
+    main.classList.remove('image-white-background'); camera = originalCamera;
+    indicators.update(); centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight);
+  };
+  const frame = async (view: ViewCamera) => {
+    signal.throwIfAborted(); camera = view; lighting.updateCamera();
+    const rendered = await renderImage(renderer, scene, camera, size, walls.visible ? largeScene : undefined, surfaceGroup, signal);
+    try {
+      main.style.cssText += `;position:absolute;width:${overlaySize.width}px;height:${overlaySize.height}px;flex:none;`;
+      main.classList.toggle('image-white-background', whiteBackground);
+      indicators.update(overlaySize.height); centreline.updateLabels(camera, overlaySize.width, overlaySize.height, scale, whiteBackground);
+      const composite = composeImage(rendered, document.querySelector<HTMLCanvasElement>('#station-labels')!, [
+        document.querySelector<HTMLElement>('#model-indicators')!, document.querySelector<HTMLElement>('#scale-indicator')!,
+      ], overlaySize);
+      restoreLayout();
+      return await composite;
+    } finally { rendered.width = 0; rendered.height = 0; restoreLayout(); }
+  };
   try {
     if (whiteBackground) restorePrintTheme = applyImagePrintTheme(scene, lines, centreline.options.color === 'default');
-    camera = imageCamera(originalCamera, size); lighting.updateCamera();
-    rendered = await renderImage(renderer, scene, camera, size, walls.visible ? largeScene : undefined, surfaceGroup);
-    // Lay out overlays at the export size only while making their frozen snapshot.
-    main.style.cssText += `;position:absolute;width:${overlaySize.width}px;height:${overlaySize.height}px;flex:none;`;
-    main.classList.toggle('image-white-background', whiteBackground);
-    indicators.update(overlaySize.height); centreline.updateLabels(camera, overlaySize.width, overlaySize.height, scale, whiteBackground);
-    const result = captureImage(rendered, document.querySelector<HTMLCanvasElement>('#station-labels')!, [
-      document.querySelector<HTMLElement>('#model-indicators')!, document.querySelector<HTMLElement>('#scale-indicator')!,
-    ], overlaySize);
-    if (previousStyle === null) main.removeAttribute('style'); else main.setAttribute('style', previousStyle);
-    main.classList.remove('image-white-background');
-    camera = originalCamera;
-    indicators.update(); centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight);
-    return await result;
+    if (imageSize.animation()) {
+      const { animationCamera, encodeAnimation } = await import('./save-animation');
+      const target = controls.target.clone(), direction = autorotate.direction;
+      return await encodeAnimation(size, index => frame(animationCamera(originalCamera, target, size, index, direction)), signal, imageSize.progress);
+    }
+    const canvas = await frame(imageCamera(originalCamera, size));
+    try { return await canvasPng(canvas); } finally { canvas.width = 0; canvas.height = 0; }
   } finally {
-    if (previousStyle === null) main.removeAttribute('style'); else main.setAttribute('style', previousStyle);
-    main.classList.remove('image-white-background'); restorePrintTheme?.();
-    camera = originalCamera; lighting.updateCamera(); exportRendering = false;
-    if (rendered) { rendered.width = 0; rendered.height = 0; }
+    restoreLayout(); restorePrintTheme?.(); wakeLock.dispose();
+    camera = originalCamera; lighting.updateCamera(); exportRendering = false; autorotate.resetTime();
   }
-}, () => imageName, error => showLoadError(status, error, { phase: 'Saving image', source: 'Rendered view' }), imageSize.finish);
+}, () => imageName, error => {
+  menus.expand();
+  showLoadError(status, error, { phase: imageSize.animation() ? 'Saving animation' : 'Saving image', source: 'Rendered view' });
+}, imageSize.finish, () => imageSize.animation() ? 'mp4' : 'png');
 const c = new THREE.Color();
 function altitudeColor(z: number, model: Pick<Model, 'minZ' | 'maxZ'>): THREE.Color {
   const t = model.maxZ === model.minZ ? .5 : (z - model.minZ) / (model.maxZ - model.minZ);
@@ -366,6 +381,7 @@ function frame(time = performance.now()) {
   requestAnimationFrame(frame);
   saveImageButton.disabled = imageExport.busy || activeBox.isEmpty() || Boolean(largeWorker)
     || loadingLargeWalls || preparationPending || surfaceScene.loading;
+  saveAnimationButton.disabled = saveImageButton.disabled;
   if (exportRendering) return;
   autorotate.update(time, Boolean(imageSize.dialog.open || largeWorker || (preparationPending && walls.visible) || document.hidden));
   if (sceneDirty) {

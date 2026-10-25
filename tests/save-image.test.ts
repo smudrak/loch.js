@@ -40,6 +40,16 @@ describe('PNG image saving', () => {
     button.click(); await settle(); expect(error).not.toHaveBeenCalled(); expect(state.busy).toBe(false);
     button.disabled = false; button.click(); await settle(); expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: 'Picker failed' })); expect(state.busy).toBe(false);
   });
+  it('uses an MP4 filename and MIME type for animation saving', async () => {
+    const button = new Button(), write = vi.fn(), error = vi.fn();
+    const picker = vi.fn(async () => ({ createWritable: async () => ({ write, close: vi.fn(), abort: vi.fn() }) }));
+    vi.stubGlobal('window', { showSaveFilePicker: picker });
+    const blob = new Blob(['MP4'], { type: 'video/mp4' });
+    initializeSaveImage(button as unknown as HTMLButtonElement, async () => blob, () => 'test.lox', error, undefined, () => 'mp4');
+    button.click(); await settle();
+    expect(picker.mock.calls[0]).toEqual([{ suggestedName: 'test.mp4', types: [{ description: 'MP4 animation', accept: { 'video/mp4': ['.mp4'] } }] }]);
+    expect(write).toHaveBeenCalledWith(blob); expect(error).not.toHaveBeenCalled();
+  });
   it('downloads PNG when the save picker is unavailable and releases its object URL', async () => {
     vi.useFakeTimers();
     vi.stubGlobal('window', { setTimeout });

@@ -30,7 +30,7 @@ function indicatorImage(overlays: HTMLElement[], width: number, height: number):
 }
 
 /** Call immediately after rendering: WebGL's default drawing buffer is transient. */
-export async function captureImage(view: HTMLCanvasElement, labels: HTMLCanvasElement, overlays: HTMLElement[], size = { width: view.clientWidth, height: view.clientHeight }): Promise<Blob> {
+export async function composeImage(view: HTMLCanvasElement, labels: HTMLCanvasElement, overlays: HTMLElement[], size = { width: view.clientWidth, height: view.clientHeight }): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas'); canvas.width = view.width; canvas.height = view.height;
   try {
     if (!canvas.width || !canvas.height || !size.width || !size.height) throw new Error('The view is empty');
@@ -41,8 +41,17 @@ export async function captureImage(view: HTMLCanvasElement, labels: HTMLCanvasEl
     if (!labels.hidden && labels.width && labels.height) context.drawImage(labels, 0, 0, canvas.width, canvas.height);
     const indicators = indicatorImage(overlays, size.width, size.height);
     if (indicators) context.drawImage(await indicators, 0, 0, canvas.width, canvas.height);
-    return await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not encode PNG image')), 'image/png'));
-  } finally { canvas.width = 0; canvas.height = 0; }
+    return canvas;
+  } catch (error) { canvas.width = 0; canvas.height = 0; throw error; }
+}
+
+export async function captureImage(view: HTMLCanvasElement, labels: HTMLCanvasElement, overlays: HTMLElement[], size = { width: view.clientWidth, height: view.clientHeight }): Promise<Blob> {
+  const canvas = await composeImage(view, labels, overlays, size);
+  try { return await canvasPng(canvas); }
+  finally { canvas.width = 0; canvas.height = 0; }
+}
+export function canvasPng(canvas: HTMLCanvasElement) {
+  return new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not encode PNG image')), 'image/png'));
 }
 
 type ImageFile = { createWritable(): Promise<{ write(blob: Blob): Promise<void>; close(): Promise<void>; abort(): Promise<void> }> };
@@ -57,18 +66,19 @@ function downloadImage(blob: Blob, filename: string) {
   finally { link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 60_000); }
 }
 
-export function initializeSaveImage(button: HTMLButtonElement, capture: () => Promise<Blob>, name: () => string,
-  onError: (error: unknown) => void, onFinished?: () => void) {
+export function initializeSaveFile(button: HTMLButtonElement, capture: () => Promise<Blob>, name: () => string,
+  onError: (error: unknown) => void, onFinished?: () => void, getFormat: () => 'png' | 'mp4' = () => 'png') {
   let busy = false;
   button.addEventListener('click', () => {
     if (busy || button.disabled) return;
     busy = true; button.disabled = true;
-    const filename = imageFilename(name());
+    const format = getFormat(), filename = imageFilename(name()).replace(/\.png$/, `.${format}`);
+    const description = format === 'png' ? 'PNG image' : 'MP4 animation', mime = format === 'png' ? 'image/png' : 'video/mp4';
     void (async () => {
       try {
         // Request the picker synchronously, while click activation is still valid.
         const destination = (window as SaveWindow).showSaveFilePicker?.({ suggestedName: filename,
-          types: [{ description: 'PNG image', accept: { 'image/png': ['.png'] } }] });
+          types: [{ description, accept: { [mime]: [`.${format}`] } }] });
         const file = await destination;
         const blob = await capture();
         if (file) {
@@ -82,3 +92,5 @@ export function initializeSaveImage(button: HTMLButtonElement, capture: () => Pr
   });
   return { get busy() { return busy; } };
 }
+
+export const initializeSaveImage = initializeSaveFile;
