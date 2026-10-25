@@ -26,6 +26,9 @@ import { AnimationWakeLock } from './screen-wake-lock';
 import { initializeImageSizeDialog } from './image-size';
 import { imageCamera, renderImage } from './render-image';
 import { applyImageBackground, setSceneBackground } from './image-print-theme';
+import { initializePresentation } from './presentation-ui';
+import { capturePresentationCamera, presentationCamera, type PresentationPose } from './presentation-timeline';
+import { applySceneSettings, snapshotPresentationControls } from './presentation-scene';
 import './style.css';
 
 initializeAbout();
@@ -49,6 +52,7 @@ const boundingBox = new THREE.Box3Helper(new THREE.Box3(), 0xff0000);
 boundingBox.visible = false;
 scene.add(boundingBox);
 let activeBox = new THREE.Box3();
+const activeOrigin = new THREE.Vector3();
 let imageName = 'Sample cave';
 let loadId = 0;
 let largeWorker: Worker | undefined;
@@ -164,28 +168,65 @@ const menus = initializeMenus(view => {
   loadingError = true; setStatusProgress(status);
   setStatusText(status, `Cannot change full screen: ${exceptionMessage(error)}`);
 });
+let exportRendering = false;
+const presentation = initializePresentation({
+  capture: () => capturePresentationCamera(camera, controls.target, activeOrigin), walker: () => walker.enabled,
+  canPlay: () => !activeBox.isEmpty() && !largeWorker && !loadingLargeWalls && !preparationPending && !exportRendering,
+  apply(pose: PresentationPose) {
+    camera = presentationCamera(pose, activeOrigin, canvas.clientWidth / canvas.clientHeight, camera);
+    controls.object = camera; controls.target.set(...pose.center).sub(activeOrigin);
+    if (walker.enabled !== pose.walker) setWalker(pose.walker);
+    perspective.checked = camera instanceof THREE.PerspectiveCamera;
+    if (!presentation.player.playing) {
+      controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI; controls.update(); setTiltLocked(controls, lockTilt.checked);
+    }
+    invalidateView();
+  },
+  playing(active) {
+    if (active) {
+      const checkbox = document.querySelector<HTMLInputElement>('#autorotate')!;
+      if (checkbox.checked) { checkbox.checked = false; checkbox.dispatchEvent(new Event('change')); }
+      controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI;
+    } else { controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI; controls.update(); setTiltLocked(controls, lockTilt.checked); }
+    autorotate.resetTime();
+  },
+  error(error, file) { menus.expand(); showLoadError(status, error, { phase: 'Reading animation', ...(file ? { file } : { source: 'Animation' }) }); },
+});
+controls.addEventListener('start', () => presentation.player.stop());
+canvas.addEventListener('wheel', () => presentation.player.stop(), { passive: true });
+document.querySelector('#menus')!.addEventListener('change', event => {
+  if (event.isTrusted && (event.target as HTMLElement).id !== 'play-presentation') presentation.player.stop();
+});
+document.querySelector('#menus')!.addEventListener('click', event => {
+  if ((event.target as HTMLElement).closest('[data-view]')) presentation.player.stop();
+});
 const saveImageButton = document.querySelector<HTMLButtonElement>('#save-image')!;
 const saveAnimationButton = document.querySelector<HTMLButtonElement>('#save-animation')!;
 // Apply the collapsed viewport before the dialog reads the default export size.
 for (const button of [saveImageButton, saveAnimationButton]) button.addEventListener('click', () => resize());
-let exportRendering = false;
 const imageSize = initializeImageSizeDialog(saveImageButton, () => ({ width: canvas.width, height: canvas.height }),
-  Math.min(16384, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)), saveAnimationButton, () => backgroundCheckbox.checked);
+  Math.min(16384, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)), saveAnimationButton, () => backgroundCheckbox.checked, () => ({ views: presentation.timeline().views.length, duration: presentation.timeline().duration }));
 const imageExport = initializeSaveFile(imageSize.save, async () => {
   const size = imageSize.size(), originalCamera = camera, whiteBackground = imageSize.whiteBackground(), signal = imageSize.signal();
   const scale = imageSize.overlayScale() * size.height / canvas.clientHeight;
   const overlaySize = { width: size.width / scale, height: size.height / scale };
-  exportRendering = true; autorotate.resetTime();
+  exportRendering = true; autorotate.resetTime(); presentation.player.resetTime();
+  const originalTarget = controls.target.clone(), timeline = presentation.timeline();
+  const restoreScene = snapshotPresentationControls();
+  let exportScene = -1;
   let restorePrintTheme: (() => void) | undefined;
   const wakeLock = new AnimationWakeLock(); wakeLock.enabled = imageSize.animation();
   const main = canvas.parentElement!, previousStyle = main.getAttribute('style');
   const restoreLayout = () => {
     if (previousStyle === null) main.removeAttribute('style'); else main.setAttribute('style', previousStyle);
-    main.classList.toggle('image-white-background', backgroundCheckbox.checked); camera = originalCamera;
+    main.classList.toggle('image-white-background', backgroundCheckbox.checked); camera = originalCamera; controls.target.copy(originalTarget);
     indicators.update(); centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight, undefined, backgroundCheckbox.checked);
   };
-  const frame = async (view: ViewCamera) => {
-    signal.throwIfAborted(); camera = view; lighting.updateCamera();
+  const frame = async (view: ViewCamera, target = originalTarget, sceneIndex = -1) => {
+    signal.throwIfAborted();
+    if (timeline.sceneChanges && sceneIndex >= 0 && sceneIndex !== exportScene) { applySceneSettings(timeline.views[sceneIndex].scene); exportScene = sceneIndex; }
+    camera = view; controls.target.copy(target);
+    setSceneBackground(scene, lines, whiteBackground, centreline.options.color === 'default'); lighting.updateCamera();
     const rendered = await renderImage(renderer, scene, camera, size, walls.visible ? largeScene : undefined, surfaceGroup, signal);
     try {
       main.style.cssText += `;position:absolute;width:${overlaySize.width}px;height:${overlaySize.height}px;flex:none;`;
@@ -203,13 +244,20 @@ const imageExport = initializeSaveFile(imageSize.save, async () => {
     if (imageSize.animation()) {
       const { animationCamera, encodeAnimation } = await import('./save-animation');
       const target = controls.target.clone(), direction = autorotate.direction, settings = imageSize.animationSettings();
+      if (timeline.views.length) {
+        const schedule = timeline.frames(settings.fps);
+        return await encodeAnimation(size, index => {
+          const pose = timeline.sample(schedule.time(index));
+          return frame(presentationCamera(pose, activeOrigin, size.width / size.height, originalCamera), new THREE.Vector3(...pose.center).sub(activeOrigin), pose.sceneIndex);
+        }, signal, imageSize.progress, settings, schedule.count);
+      }
       return await encodeAnimation(size, index => frame(animationCamera(originalCamera, target, size, index, direction, settings.fps)), signal, imageSize.progress, settings);
     }
     const canvas = await frame(imageCamera(originalCamera, size));
     try { return await canvasPng(canvas); } finally { canvas.width = 0; canvas.height = 0; }
   } finally {
-    restoreLayout(); restorePrintTheme?.(); wakeLock.dispose();
-    camera = originalCamera; lighting.updateCamera(); exportRendering = false; autorotate.resetTime();
+    restoreScene(); restorePrintTheme?.(); restoreLayout(); wakeLock.dispose(); presentation.resetScene();
+    camera = originalCamera; lighting.updateCamera(); exportRendering = false; autorotate.resetTime(); presentation.player.resetTime();
   }
 }, () => imageName, error => {
   menus.expand();
@@ -244,7 +292,7 @@ function draw(model: Model, label: string) {
   for (const surface of model.surfaces) for (let i = 0; i < surface.heights.length; i++) {
     bounds.expandByPoint(new THREE.Vector3(...surfacePoint(surface, i, surface.heights[i])));
   }
-  const origin = bounds.getCenter(new THREE.Vector3());
+  const origin = bounds.getCenter(new THREE.Vector3()); activeOrigin.copy(origin); presentation.resetScene();
   const centered = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(), bounds.getSize(new THREE.Vector3()));
   activeBox = bounds.isEmpty() ? new THREE.Box3() : centered;
   boundingBox.box.copy(centered);
@@ -269,6 +317,8 @@ function draw(model: Model, label: string) {
   setCameraView(camera, controls, activeBox, 'fit');
 }
 async function loadFile(file: File) {
+  if (/\.lxa$/i.test(file.name)) { await presentation.loadFile(file); return; }
+  presentation.player.stop(); presentation.resetScene();
   const id = ++loadId;
   collapseAfterRender = false;
   menus.expand();
@@ -329,7 +379,7 @@ function loadLargeFile(file: File, id: number) {
         clear(walls); centreline.clear(); surfaceScene.clear();
         loadingLargeWalls = true;
         invalidateView();
-        const origin = new THREE.Vector3(...model.origin); modelOrigin = origin;
+        const origin = new THREE.Vector3(...model.origin); modelOrigin = origin; activeOrigin.copy(origin); presentation.resetScene();
         activeBox = new THREE.Box3(new THREE.Vector3(...model.min).sub(origin), new THREE.Vector3(...model.max).sub(origin));
         boundingBox.box.copy(activeBox);
         boundingBox.visible = document.querySelector<HTMLInputElement>('#bounding-box')!.checked;
@@ -381,7 +431,7 @@ document.querySelector<HTMLInputElement>('#bounding-box')!.addEventListener('cha
   invalidateView();
 });
 window.addEventListener('dragover', e => e.preventDefault());
-window.addEventListener('drop', e => { e.preventDefault(); const file = e.dataTransfer?.files[0]; if (file && modelFileFormat(file.name)) void loadFile(file); });
+window.addEventListener('drop', e => { e.preventDefault(); const file = e.dataTransfer?.files[0]; if (file && (modelFileFormat(file.name) || /\.lxa$/i.test(file.name))) void loadFile(file); });
 const resize = () => { const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); resizeCamera(camera, w / h); invalidateView(); };
 new ResizeObserver(resize).observe(canvas); resize();
 function frame(time = performance.now()) {
@@ -389,8 +439,11 @@ function frame(time = performance.now()) {
   saveImageButton.disabled = imageExport.busy || activeBox.isEmpty() || Boolean(largeWorker)
     || loadingLargeWalls || preparationPending || surfaceScene.loading;
   saveAnimationButton.disabled = saveImageButton.disabled;
+  presentation.refresh();
   if (exportRendering) return;
-  autorotate.update(time, Boolean(imageSize.dialog.open || largeWorker || (preparationPending && walls.visible) || document.hidden));
+  const suspended = Boolean(imageSize.dialog.open || document.querySelector<HTMLDialogElement>('#presentation-edit-dialog')!.open || largeWorker || (preparationPending && walls.visible) || document.hidden);
+  if (presentation.player.playing) presentation.player.update(time, suspended);
+  else autorotate.update(time, suspended);
   if (sceneDirty) {
     updateSceneBackground();
     indicators.update();

@@ -20,10 +20,11 @@ export function animationBitrate(size: ImageSize, fps: number, quality: Animatio
 }
 
 export async function encodeAnimation(size: ImageSize, render: (frame: number) => Promise<HTMLCanvasElement>,
-  signal: AbortSignal, progress: (completed: number, total: number) => void, settings: AnimationSettings = { fps: ANIMATION_FPS, quality: 'high' }): Promise<Blob> {
+  signal: AbortSignal, progress: (completed: number, total: number) => void, settings: AnimationSettings = { fps: ANIMATION_FPS, quality: 'high' }, frames?: number): Promise<Blob> {
   signal.throwIfAborted();
-  const { fps } = settings, frameCount = AUTOROTATE_PERIOD_SECONDS * fps;
+  const { fps } = settings, frameCount = frames ?? AUTOROTATE_PERIOD_SECONDS * fps;
   if (!Number.isInteger(fps) || fps < 1 || fps > 120 || !['low', 'medium', 'high'].includes(settings.quality)) throw new Error('Choose FPS from 1 to 120 and a supported quality.');
+  if (!Number.isSafeInteger(frameCount) || frameCount <= 0) throw new Error('Invalid animation frame count');
   if (typeof VideoEncoder === 'undefined') throw new Error('MP4 encoding is unavailable in this browser. Open loch.js in a current Chrome or Edge browser.');
   const { Output, Mp4OutputFormat, BufferTarget, CanvasSource, Quality, getFirstEncodableVideoCodec } = await import('mediabunny');
   const quality = new Quality({ bitrate: animationBitrate(size, fps, settings.quality) });

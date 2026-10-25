@@ -7,7 +7,7 @@ export function validImageSize(size: ImageSize, maxDimension: number) {
     && size.width <= maxDimension && size.height <= maxDimension && size.width * size.height <= MAX_IMAGE_PIXELS;
 }
 export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize: () => ImageSize, maxDimension: number,
-  animationButton?: HTMLButtonElement, screenWhiteBackground: () => boolean = () => false) {
+  animationButton?: HTMLButtonElement, screenWhiteBackground: () => boolean = () => false, animationInfo: () => { views: number; duration: number } = () => ({ views: 0, duration: 15 })) {
   const dialog = document.querySelector<HTMLDialogElement>('#image-size-dialog')!;
   const form = dialog.querySelector('form')!;
   const title = document.querySelector<HTMLElement>('#image-size-title')!;
@@ -29,6 +29,7 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
   const size = () => ({ width: width.valueAsNumber, height: height.valueAsNumber });
   const round = (value: number) => animation ? Math.max(2, Math.round(value / 2) * 2) : Math.max(1, Math.round(value));
   for (const input of [width, height]) input.max = String(maxDimension);
+  const describe = () => { const info = animationInfo(); description.textContent = `${info.views ? `${info.views} views · ${info.duration} seconds` : '360° rotation · 15 seconds'} · ${fps.value} fps`; };
   const open = (video: boolean) => {
     animation = video; abort = new AbortController();
     const current = video ? { width: 1920, height: 1080 } : currentSize();
@@ -37,7 +38,7 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
     ratio = width.valueAsNumber / height.valueAsNumber;
     title.textContent = video ? 'Save animation' : 'Save image'; description.hidden = animationOptions.hidden = !video; progressPanel.hidden = true;
     white.closest('label')!.hidden = video; fps.value = '30'; quality.value = 'high';
-    description.textContent = '360° rotation · 15 seconds · 30 fps';
+    describe();
     progress.value = 0; progressText.textContent = ''; aspect.checked = true;
     white.checked = screenWhiteBackground(); scale.value = '100'; width.setCustomValidity(''); dialog.showModal(); width.focus(); width.select();
   };
@@ -51,7 +52,7 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
     width.setCustomValidity('');
     if (aspect.checked) width.value = String(round(height.valueAsNumber * ratio));
   });
-  fps.addEventListener('input', () => { description.textContent = `360° rotation · 15 seconds · ${fps.value} fps`; });
+  fps.addEventListener('input', describe);
   aspect.addEventListener('change', () => { if (aspect.checked) ratio = width.valueAsNumber / height.valueAsNumber; });
   save.addEventListener('click', event => {
     const dimensions = size();

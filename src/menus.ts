@@ -66,6 +66,7 @@ export function initializeMenus(onView: (view: ModelView) => void, onError: (err
     chooser.click();
   });
   for (const id of ['#save-image', '#save-animation']) document.querySelector(id)!.addEventListener('click', collapse);
+  document.querySelector('#animation-editor')!.addEventListener('click', closeDropdowns);
   for (const button of Array.from(menus.querySelectorAll<HTMLButtonElement>('[data-view]'))) {
     button.addEventListener('click', () => {
       onView(button.dataset.view as ModelView);

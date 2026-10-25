@@ -65,6 +65,13 @@ describe('360-degree MP4 animation', () => {
     expect(low).toBeLessThan(medium); expect(medium).toBeLessThan(high);
     expect(animationBitrate(size, 60, 'high')).toBeGreaterThan(high);
   });
+  it('encodes the presentation frame count instead of a fixed 15-second turn', async () => {
+    const render = vi.fn(async (_index: number) => ({ width: 2, height: 2 } as HTMLCanvasElement)), progress = vi.fn();
+    await encodeAnimation({ width: 2, height: 2 }, render, new AbortController().signal, progress, { fps: 2, quality: 'high' }, 7);
+    expect(render.mock.calls.map(args => args[0])).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(encoder.add.mock.calls[6]).toEqual([3, .5]); expect(progress).toHaveBeenLastCalledWith(7, 7);
+    expect(encoder.finalize).toHaveBeenCalledTimes(1);
+  });
   it.each([0, 121, 1.5, NaN])('rejects invalid FPS %s before rendering', async fps => {
     const render = vi.fn();
     await expect(encodeAnimation({ width: 2, height: 2 }, render, new AbortController().signal, vi.fn(), { fps, quality: 'high' })).rejects.toThrow('FPS');

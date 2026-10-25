@@ -37,6 +37,8 @@
     <details class="menu"><summary>View</summary><div class="menu-items">
       <label><input id="walker" type="checkbox"/> Walker</label>
       <label><input id="autorotate" type="checkbox"/> Autorotate</label>
+      <label><input id="play-presentation" type="checkbox"/> Play animation</label>
+      <button id="animation-editor" type="button">Animation…</button>
       <label><input id="perspective" type="checkbox" checked/> Perspective</label>
       <label><input id="lock-tilt" type="checkbox"/> Lock tilt</label>
       <hr/>
@@ -65,7 +67,7 @@
     <g transform="rotate(40 16 12)"><rect x="14" y="9.5" width="4" height="5.5" rx=".8" fill="currentColor"/><path d="M16 9.5V6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></g>
   </svg></button>
   <button id="autorotate-toggle" type="button" aria-label="Start autorotation" aria-pressed="false" title="Start autorotation"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="autorotate-symbol" fill="currentColor" d="M8 5v14l11-7z"/></svg></button>
-  <input id="file" type="file" accept=".lox,.3d,.plt" aria-label="Open cave model file" hidden/>
+  <input id="file" type="file" accept=".lox,.3d,.plt,.lxa" aria-label="Open cave model file" hidden/>
 </header><main><canvas id="view" aria-label="3D cave model"></canvas><canvas id="station-labels" aria-label="Station labels" hidden></canvas><aside id="model-indicators" class="overlay" aria-label="Model indicators"><h2 id="project-title" hidden></h2>
   <div id="legend"></div>
   <div class="orientation-indicators">
@@ -91,4 +93,18 @@
   <p id="animation-description" hidden>360° rotation · 15 seconds · 30 fps</p>
   <div id="animation-export-progress" hidden><progress id="animation-progress" value="0" max="450"></progress><span id="animation-progress-text" role="status"></span></div>
   <div class="image-save-actions"><button id="image-save-cancel" type="button">Cancel</button><button id="image-save-confirm" type="button">Save…</button></div>
+</form></dialog><dialog id="presentation-panel" aria-labelledby="presentation-title"><header><h2 id="presentation-title">Animation</h2><button id="presentation-close" type="button" aria-label="Close animation editor">×</button></header>
+  <p id="presentation-summary"></p><select id="presentation-views" size="8" aria-label="Animation views"></select>
+  <div class="presentation-actions"><button id="presentation-play" type="button">Play</button><button id="presentation-mark" type="button">Mark</button><button id="presentation-update" type="button">Update</button><button id="presentation-edit" type="button">Edit…</button><button id="presentation-up" type="button">Move up</button><button id="presentation-down" type="button">Move down</button><button id="presentation-delete" type="button">Delete</button></div>
+  <div class="presentation-actions"><button id="presentation-new" type="button">New</button><button id="presentation-load" type="button">Load .lxa…</button><button id="presentation-save" type="button">Save .lxa…</button></div>
+  <label><input id="presentation-loop" type="checkbox" checked/> Loop animation</label><label><input id="presentation-scene-changes" type="checkbox"/> Scene changes</label>
+  <input id="presentation-file" type="file" accept=".lxa" hidden/>
+</dialog>
+<dialog id="presentation-edit-dialog" aria-labelledby="presentation-edit-title"><h2 id="presentation-edit-title">Edit animation view</h2><form>
+  <label>Name <input id="presentation-name" type="text"/></label>
+  <label>Transition duration (s) <input id="presentation-duration" type="number" min="0.001" step="any" required/></label>
+  <label>Rotations <input id="presentation-rotations" type="number" step="1" required/></label>
+  <label>Rotation duration (s) <input id="presentation-rotation-duration" type="number" min="0.001" step="any" required/></label>
+  <label><input id="presentation-walker" type="checkbox"/> Walker mode</label><label><input id="presentation-transition" type="checkbox"/> Transition view (pass through without stopping)</label>
+  <div class="image-save-actions"><button id="presentation-edit-cancel" type="button">Cancel</button><button type="submit">Apply</button></div>
 </form></dialog><dialog id="about-dialog" aria-labelledby="about-title"><h2 id="about-title">About loch.js</h2><dl><dt>Version</dt><dd id="app-version"></dd><dt>Commit</dt><dd><code id="build-commit"></code></dd><dt>Built</dt><dd><time id="build-date"></time></dd></dl><form method="dialog"><button autofocus>Close</button></form></dialog><script type="module" src="/src/main.ts"></script></body></html>

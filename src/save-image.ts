@@ -1,5 +1,5 @@
 export function imageFilename(name: string) {
-  const stem = name.replace(/\.(lox|3d|plt)$/i, '').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').trim().replace(/[. ]+$/, '');
+  const stem = name.replace(/\.(lox|3d|plt|lxa)$/i, '').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').trim().replace(/[. ]+$/, '');
   return `${stem || 'loch'}.png`;
 }
 
@@ -67,13 +67,13 @@ function downloadImage(blob: Blob, filename: string) {
 }
 
 export function initializeSaveFile(button: HTMLButtonElement, capture: () => Promise<Blob>, name: () => string,
-  onError: (error: unknown) => void, onFinished?: () => void, getFormat: () => 'png' | 'mp4' = () => 'png') {
+  onError: (error: unknown) => void, onFinished?: () => void, getFormat: () => 'png' | 'mp4' | 'lxa' = () => 'png') {
   let busy = false;
   button.addEventListener('click', () => {
     if (busy || button.disabled) return;
     busy = true; button.disabled = true;
     const format = getFormat(), filename = imageFilename(name()).replace(/\.png$/, `.${format}`);
-    const description = format === 'png' ? 'PNG image' : 'MP4 animation', mime = format === 'png' ? 'image/png' : 'video/mp4';
+    const description = format === 'png' ? 'PNG image' : format === 'mp4' ? 'MP4 animation' : 'Loch animation', mime = format === 'png' ? 'image/png' : format === 'mp4' ? 'video/mp4' : 'application/xml';
     void (async () => {
       try {
         // Request the picker synchronously, while click activation is still valid.
