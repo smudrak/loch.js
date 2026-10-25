@@ -14,11 +14,12 @@ export class ProgressiveView {
   private transparentSurface = false;
 
   constructor(private renderer: THREE.WebGLRenderer, private scene: THREE.Scene,
-    private camera: THREE.PerspectiveCamera | THREE.OrthographicCamera, largeScene: LargeScene, private surface?: THREE.Group) {
-    const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+    private camera: THREE.PerspectiveCamera | THREE.OrthographicCamera, largeScene: LargeScene, private surface?: THREE.Group, exportSize?: THREE.Vector2) {
+    const size = exportSize ?? renderer.getDrawingBufferSize(new THREE.Vector2());
     // Multisample render targets can discard their color attachment on resolve,
     // so use a persistent single-sample target for accumulation across frames.
     this.target = new THREE.WebGLRenderTarget(size.x, size.y, { depthBuffer: true });
+    if (exportSize) this.target.texture.colorSpace = renderer.outputColorSpace;
     this.copyCamera.position.z = 1;
     this.copyMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({
       map: this.target.texture, depthTest: false, depthWrite: false, toneMapped: false,
@@ -47,7 +48,9 @@ export class ProgressiveView {
   get complete() { return this.next >= this.batches.length; }
   get progress() { return this.batches.length ? this.next / this.batches.length : 1; }
 
-  step() {
+  get imageTarget() { return this.target; }
+
+  step(present = true) {
     if (this.complete) return;
     const mesh = this.batches[this.next++];
     const renderer = this.renderer, target = renderer.getRenderTarget();
@@ -70,7 +73,7 @@ export class ProgressiveView {
       }
       renderer.setRenderTarget(target);
       renderer.autoClear = true;
-      renderer.render(this.copyScene, this.copyCamera);
+      if (present) renderer.render(this.copyScene, this.copyCamera);
     } finally {
       if (mesh) { mesh.visible = false; mesh.geometry.dispose(); }
       if (this.surface) this.surface.visible = this.surfaceVisible;

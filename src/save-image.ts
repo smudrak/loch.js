@@ -30,16 +30,16 @@ function indicatorImage(overlays: HTMLElement[], width: number, height: number):
 }
 
 /** Call immediately after rendering: WebGL's default drawing buffer is transient. */
-export async function captureImage(view: HTMLCanvasElement, labels: HTMLCanvasElement, overlays: HTMLElement[]): Promise<Blob> {
+export async function captureImage(view: HTMLCanvasElement, labels: HTMLCanvasElement, overlays: HTMLElement[], size = { width: view.clientWidth, height: view.clientHeight }): Promise<Blob> {
   const canvas = document.createElement('canvas'); canvas.width = view.width; canvas.height = view.height;
   try {
-    if (!canvas.width || !canvas.height || !view.clientWidth || !view.clientHeight) throw new Error('The view is empty');
+    if (!canvas.width || !canvas.height || !size.width || !size.height) throw new Error('The view is empty');
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Could not create image canvas');
     // Copy the scene and labels synchronously, before any async work or animation frame.
     context.drawImage(view, 0, 0);
     if (!labels.hidden && labels.width && labels.height) context.drawImage(labels, 0, 0, canvas.width, canvas.height);
-    const indicators = indicatorImage(overlays, view.clientWidth, view.clientHeight);
+    const indicators = indicatorImage(overlays, size.width, size.height);
     if (indicators) context.drawImage(await indicators, 0, 0, canvas.width, canvas.height);
     return await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not encode PNG image')), 'image/png'));
   } finally { canvas.width = 0; canvas.height = 0; }
@@ -58,7 +58,7 @@ function downloadImage(blob: Blob, filename: string) {
 }
 
 export function initializeSaveImage(button: HTMLButtonElement, capture: () => Promise<Blob>, name: () => string,
-  onError: (error: unknown) => void) {
+  onError: (error: unknown) => void, onFinished?: () => void) {
   let busy = false;
   button.addEventListener('click', () => {
     if (busy || button.disabled) return;
@@ -69,14 +69,15 @@ export function initializeSaveImage(button: HTMLButtonElement, capture: () => Pr
         // Request the picker synchronously, while click activation is still valid.
         const destination = (window as SaveWindow).showSaveFilePicker?.({ suggestedName: filename,
           types: [{ description: 'PNG image', accept: { 'image/png': ['.png'] } }] });
-        const [blob, file] = await Promise.all([Promise.resolve().then(capture), destination]);
+        const file = await destination;
+        const blob = await capture();
         if (file) {
           const writable = await file.createWritable();
           try { await writable.write(blob); await writable.close(); }
           catch (error) { await writable.abort().catch(() => {}); throw error; }
         } else downloadImage(blob, filename);
       } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) onError(error); }
-      finally { busy = false; }
+      finally { busy = false; onFinished?.(); }
     })();
   });
   return { get busy() { return busy; } };

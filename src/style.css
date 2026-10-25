@@ -98,3 +98,11 @@ footer a{color:#8ed9ff;white-space:nowrap;flex-shrink:0}
 #project-title{position:absolute;top:16px;left:16px;max-width:calc(100% - 100px);margin:0;padding:8px 12px;border-radius:6px;background:#15263480;font-size:1rem;font-weight:600;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 header.compact:not(.collapsed)~main #project-title{top:calc(34px + 1.4rem + 16px)}
 @media(max-width:650px){#project-title{top:12px;left:8px;font-size:.9rem}header.compact:not(.collapsed)~main #project-title{top:calc(34px + 1.2rem + 12px)}}
+
+#image-size-dialog{width:min(380px,calc(100% - 32px));padding:24px;border:1px solid #678599;border-radius:12px;background:#162531;color:#eaf3ff}
+#image-size-dialog::backdrop{background:#0009}
+#image-size-dialog h2{margin:0 0 20px;font-size:1.25rem}
+#image-size-dialog label{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0}
+#image-size-dialog input[type=number]{width:120px;padding:6px;border:1px solid #678599;border-radius:4px;background:#09131c;color:inherit;font:inherit}
+#image-size-dialog label:has(input[type=checkbox]){justify-content:flex-start}
+.image-save-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}

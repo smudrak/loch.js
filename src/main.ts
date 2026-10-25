@@ -22,6 +22,8 @@ import { displayProjectTitle } from './lox-title';
 import { initializeAutorotateControls } from './autorotate';
 import { modelFileFormat, parseModelFile } from './model-file';
 import { captureImage, initializeSaveImage } from './save-image';
+import { initializeImageSizeDialog } from './image-size';
+import { imageCamera, renderImage } from './render-image';
 import './style.css';
 
 initializeAbout();
@@ -154,15 +156,33 @@ const menus = initializeMenus(view => {
   setStatusText(status, `Cannot change full screen: ${exceptionMessage(error)}`);
 });
 const saveImageButton = document.querySelector<HTMLButtonElement>('#save-image')!;
-const imageExport = initializeSaveImage(saveImageButton, () => {
-  indicators.update(); centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight);
-  lighting.updateCamera();
-  if (progressiveView && !sceneDirty) progressiveView.present();
-  else { largeScene?.update(camera, detail.value === 'full'); renderer.render(scene, camera); }
-  return captureImage(canvas, document.querySelector<HTMLCanvasElement>('#station-labels')!, [
-    document.querySelector<HTMLElement>('#model-indicators')!, document.querySelector<HTMLElement>('#scale-indicator')!,
-  ]);
-}, () => imageName, error => showLoadError(status, error, { phase: 'Saving image', source: 'Rendered view' }));
+let exportRendering = false;
+const imageSize = initializeImageSizeDialog(saveImageButton, () => ({ width: canvas.width, height: canvas.height }),
+  Math.min(8192, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)));
+const imageExport = initializeSaveImage(imageSize.save, async () => {
+  const size = imageSize.size(), originalCamera = camera;
+  exportRendering = true; autorotate.resetTime();
+  let rendered: HTMLCanvasElement | undefined;
+  const main = canvas.parentElement!, previousStyle = main.getAttribute('style');
+  try {
+    camera = imageCamera(originalCamera, size); lighting.updateCamera();
+    rendered = await renderImage(renderer, scene, camera, size, walls.visible ? largeScene : undefined, surfaceGroup);
+    // Lay out overlays at the export size only while making their frozen snapshot.
+    main.style.cssText += `;position:absolute;width:${size.width}px;height:${size.height}px;flex:none;`;
+    indicators.update(); centreline.updateLabels(camera, size.width, size.height, 1);
+    const result = captureImage(rendered, document.querySelector<HTMLCanvasElement>('#station-labels')!, [
+      document.querySelector<HTMLElement>('#model-indicators')!, document.querySelector<HTMLElement>('#scale-indicator')!,
+    ], size);
+    if (previousStyle === null) main.removeAttribute('style'); else main.setAttribute('style', previousStyle);
+    camera = originalCamera;
+    indicators.update(); centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight);
+    return await result;
+  } finally {
+    if (previousStyle === null) main.removeAttribute('style'); else main.setAttribute('style', previousStyle);
+    camera = originalCamera; lighting.updateCamera(); exportRendering = false;
+    if (rendered) { rendered.width = 0; rendered.height = 0; }
+  }
+}, () => imageName, error => showLoadError(status, error, { phase: 'Saving image', source: 'Rendered view' }), imageSize.finish);
 const c = new THREE.Color();
 function altitudeColor(z: number, model: Pick<Model, 'minZ' | 'maxZ'>): THREE.Color {
   const t = model.maxZ === model.minZ ? .5 : (z - model.minZ) / (model.maxZ - model.minZ);
@@ -336,7 +356,8 @@ function frame(time = performance.now()) {
   requestAnimationFrame(frame);
   saveImageButton.disabled = imageExport.busy || activeBox.isEmpty() || Boolean(largeWorker)
     || loadingLargeWalls || preparationPending || surfaceScene.loading;
-  autorotate.update(time, Boolean(largeWorker || (preparationPending && walls.visible) || document.hidden));
+  if (exportRendering) return;
+  autorotate.update(time, Boolean(imageSize.dialog.open || largeWorker || (preparationPending && walls.visible) || document.hidden));
   if (sceneDirty) {
     indicators.update();
     centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight);

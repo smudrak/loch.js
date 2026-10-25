@@ -75,10 +75,10 @@ export class StationLabels {
   }
   setVisible(visible: boolean) { if (this.canvas) this.canvas.hidden = !visible; }
 
-  draw(camera: Camera, width: number, height: number, origin: Vector3, mode: StationLabel, visible: (station: Station) => boolean, marker?: (station: Station) => StationMarker | undefined) {
+  draw(camera: Camera, width: number, height: number, origin: Vector3, mode: StationLabel, visible: (station: Station) => boolean, marker?: (station: Station) => StationMarker | undefined, pixelRatio?: number) {
     const canvas = this.canvas;
     if (!canvas || canvas.hidden || width <= 0 || height <= 0) return;
-    const ratio = Math.min(globalThis.devicePixelRatio || 1, 2, Math.sqrt(8_388_608 / (width * height)));
+    const ratio = pixelRatio ?? Math.min(globalThis.devicePixelRatio || 1, 2, Math.sqrt(8_388_608 / (width * height)));
     if (canvas.width !== Math.round(width * ratio) || canvas.height !== Math.round(height * ratio)) {
       canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
     }

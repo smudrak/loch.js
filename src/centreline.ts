@@ -33,7 +33,7 @@ export class CentrelineScene {
     this.stations = new StationScene(group, labels);
   }
 
-  updateLabels(camera: THREE.Camera, width: number, height: number) { this.stations.updateLabels(camera, width, height); }
+  updateLabels(camera: THREE.Camera, width: number, height: number, pixelRatio?: number) { this.stations.updateLabels(camera, width, height, pixelRatio); }
 
   setModel(model: AltitudeRange & { shots: Shot[]; stationDetails?: Station[] }, origin: THREE.Vector3) {
     this.clear(); this.range = { minZ: model.minZ, maxZ: model.maxZ }; this.originZ = origin.z;
