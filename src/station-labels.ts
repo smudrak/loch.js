@@ -9,7 +9,7 @@ export type StationMarker = 'entrance' | 'fixed' | 'continuation';
 const markerScale = (marker: StationMarker) => marker === 'fixed' ? 1 / 3 : .7;
 
 /** Fixed-size symbols drawn directly on the shared overlay, centred on the station. */
-export function drawStationMarker(context: CanvasRenderingContext2D, marker: StationMarker, x: number, y: number) {
+export function drawStationMarker(context: CanvasRenderingContext2D, marker: StationMarker, x: number, y: number, whiteBackground = false) {
   context.save(); context.translate(x, y);
   const scale = markerScale(marker); context.scale(scale, scale);
   context.lineWidth = 1.5; context.strokeStyle = '#09131c';
@@ -31,7 +31,8 @@ export function drawStationMarker(context: CanvasRenderingContext2D, marker: Sta
     context.fillStyle = '#ff3030'; context.fill(); context.stroke();
   } else {
     context.font = 'bold 20px system-ui, sans-serif'; context.textAlign = 'center'; context.textBaseline = 'middle';
-    context.lineWidth = 3; context.fillStyle = '#ffffff';
+    context.lineWidth = 3; context.strokeStyle = whiteBackground ? '#ffffff' : '#09131c';
+    context.fillStyle = whiteBackground ? '#162531' : '#ffffff';
     context.strokeText('?', 0, 0); context.fillText('?', 0, 0);
   }
   context.restore();
@@ -75,7 +76,7 @@ export class StationLabels {
   }
   setVisible(visible: boolean) { if (this.canvas) this.canvas.hidden = !visible; }
 
-  draw(camera: Camera, width: number, height: number, origin: Vector3, mode: StationLabel, visible: (station: Station) => boolean, marker?: (station: Station) => StationMarker | undefined, pixelRatio?: number) {
+  draw(camera: Camera, width: number, height: number, origin: Vector3, mode: StationLabel, visible: (station: Station) => boolean, marker?: (station: Station) => StationMarker | undefined, pixelRatio?: number, whiteBackground = false) {
     const canvas = this.canvas;
     if (!canvas || canvas.hidden || width <= 0 || height <= 0) return;
     const ratio = pixelRatio ?? Math.min(globalThis.devicePixelRatio || 1, 2, Math.sqrt(8_388_608 / (width * height)));
@@ -86,7 +87,7 @@ export class StationLabels {
     if (!context) return;
     context.setTransform(ratio, 0, 0, ratio, 0, 0); context.clearRect(0, 0, width, height);
     context.font = '12px system-ui, sans-serif'; context.textBaseline = 'middle';
-    context.lineWidth = 3; context.strokeStyle = '#09131c'; context.lineJoin = 'round';
+    context.lineWidth = 3; context.strokeStyle = whiteBackground ? '#ffffff' : '#09131c'; context.lineJoin = 'round';
     this.occupancy.reset(width, height);
     camera.updateMatrixWorld();
     const m = this.matrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).elements;
@@ -106,7 +107,7 @@ export class StationLabels {
       const mark = (station: Station) => {
         const symbol = marker(station);
         if (!symbol || !visible(station) || !project(station)) return;
-        drawStationMarker(context, symbol, screenX, screenY);
+        drawStationMarker(context, symbol, screenX, screenY, whiteBackground);
         const radius = 10 * markerScale(symbol);
         const x = Math.max(0, screenX - radius), y = Math.max(0, screenY - radius);
         this.occupancy.reserve(x, y, Math.min(width, screenX + radius) - x, Math.min(height, screenY + radius) - y);
@@ -139,7 +140,7 @@ export class StationLabels {
       const labelWidth = Math.max(10, textWidth + 5);
       if (left + labelWidth > width || this.occupancy.overlaps(left, top, labelWidth, HEIGHT)) return;
       this.occupancy.reserve(left, top, labelWidth, HEIGHT);
-      context.fillStyle = '#ffffff';
+      context.fillStyle = whiteBackground ? '#162531' : '#ffffff';
       const textX = left + (symbol ? 0 : 2);
       context.strokeText(text, textX, top + HEIGHT / 2); context.fillText(text, textX, top + HEIGHT / 2);
     };

@@ -11,6 +11,7 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
   const height = document.querySelector<HTMLInputElement>('#image-height')!;
   const aspect = document.querySelector<HTMLInputElement>('#image-aspect')!;
   const scale = document.querySelector<HTMLInputElement>('#image-overlay-scale')!;
+  const white = document.querySelector<HTMLInputElement>('#image-white-background')!;
   const save = document.querySelector<HTMLButtonElement>('#image-save-confirm')!;
   const cancel = document.querySelector<HTMLButtonElement>('#image-save-cancel')!;
   let ratio = 1, busy = false;
@@ -19,7 +20,7 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
   button.addEventListener('click', () => {
     const current = currentSize(); ratio = current.width / current.height;
     width.value = String(current.width); height.value = String(current.height); aspect.checked = true;
-    scale.value = '100'; width.setCustomValidity(''); dialog.showModal(); width.focus(); width.select();
+    white.checked = false; scale.value = '100'; width.setCustomValidity(''); dialog.showModal(); width.focus(); width.select();
   });
   width.addEventListener('input', () => {
     width.setCustomValidity('');
@@ -33,12 +34,12 @@ export function initializeImageSizeDialog(button: HTMLButtonElement, currentSize
   save.addEventListener('click', event => {
     width.setCustomValidity(validImageSize(size(), maxDimension) ? '' : `Use whole-pixel dimensions up to ${maxDimension} per side and 32 megapixels total.`);
     if (!form.reportValidity()) { event.stopImmediatePropagation(); return; }
-    busy = true; save.textContent = 'Saving…'; cancel.disabled = true; width.disabled = height.disabled = aspect.disabled = scale.disabled = true;
+    busy = true; save.textContent = 'Saving…'; cancel.disabled = true; width.disabled = height.disabled = aspect.disabled = scale.disabled = white.disabled = true;
   });
   form.addEventListener('submit', event => { event.preventDefault(); if (!busy) save.click(); });
   cancel.addEventListener('click', () => dialog.close());
   dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
-  return { dialog, save, size, overlayScale: () => scale.valueAsNumber / 100, finish() {
-    busy = false; save.textContent = 'Save…'; cancel.disabled = false; width.disabled = height.disabled = aspect.disabled = scale.disabled = false; save.disabled = false; dialog.close();
+  return { dialog, save, size, overlayScale: () => scale.valueAsNumber / 100, whiteBackground: () => white.checked, finish() {
+    busy = false; save.textContent = 'Save…'; cancel.disabled = false; width.disabled = height.disabled = aspect.disabled = scale.disabled = white.disabled = false; save.disabled = false; dialog.close();
   } };
 }

@@ -58,10 +58,10 @@ export class StationScene {
     this.labels.setVisible(this.group.visible && overlayVisible(options));
   }
 
-  updateLabels(camera: THREE.Camera, width: number, height: number, pixelRatio?: number) {
+  updateLabels(camera: THREE.Camera, width: number, height: number, pixelRatio?: number, whiteBackground = false) {
     const visible = this.group.visible && overlayVisible(this.options);
     this.labels.setVisible(visible);
-    if (visible) this.labels.draw(camera, width, height, this.origin, this.options.label, station => stationVisible(station, this.options), (this.options.entrance || this.options.fixed || this.options.continuation) ? station => stationMarker(station, this.options) : undefined, pixelRatio);
+    if (visible) this.labels.draw(camera, width, height, this.origin, this.options.label, station => stationVisible(station, this.options), (this.options.entrance || this.options.fixed || this.options.continuation) ? station => stationMarker(station, this.options) : undefined, pixelRatio, whiteBackground);
   }
 
   clear() {

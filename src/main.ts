@@ -24,6 +24,7 @@ import { modelFileFormat, parseModelFile } from './model-file';
 import { captureImage, initializeSaveImage } from './save-image';
 import { initializeImageSizeDialog } from './image-size';
 import { imageCamera, renderImage } from './render-image';
+import { applyImagePrintTheme } from './image-print-theme';
 import './style.css';
 
 initializeAbout();
@@ -160,27 +161,32 @@ let exportRendering = false;
 const imageSize = initializeImageSizeDialog(saveImageButton, () => ({ width: canvas.width, height: canvas.height }),
   Math.min(8192, renderer.capabilities.maxTextureSize, renderer.getContext().getParameter(renderer.getContext().MAX_RENDERBUFFER_SIZE)));
 const imageExport = initializeSaveImage(imageSize.save, async () => {
-  const size = imageSize.size(), originalCamera = camera;
+  const size = imageSize.size(), originalCamera = camera, whiteBackground = imageSize.whiteBackground();
   const scale = imageSize.overlayScale() * size.height / canvas.clientHeight;
   const overlaySize = { width: size.width / scale, height: size.height / scale };
   exportRendering = true; autorotate.resetTime();
   let rendered: HTMLCanvasElement | undefined;
+  let restorePrintTheme: (() => void) | undefined;
   const main = canvas.parentElement!, previousStyle = main.getAttribute('style');
   try {
+    if (whiteBackground) restorePrintTheme = applyImagePrintTheme(scene, lines, centreline.options.color === 'default');
     camera = imageCamera(originalCamera, size); lighting.updateCamera();
     rendered = await renderImage(renderer, scene, camera, size, walls.visible ? largeScene : undefined, surfaceGroup);
     // Lay out overlays at the export size only while making their frozen snapshot.
     main.style.cssText += `;position:absolute;width:${overlaySize.width}px;height:${overlaySize.height}px;flex:none;`;
-    indicators.update(overlaySize.height); centreline.updateLabels(camera, overlaySize.width, overlaySize.height, scale);
+    main.classList.toggle('image-white-background', whiteBackground);
+    indicators.update(overlaySize.height); centreline.updateLabels(camera, overlaySize.width, overlaySize.height, scale, whiteBackground);
     const result = captureImage(rendered, document.querySelector<HTMLCanvasElement>('#station-labels')!, [
       document.querySelector<HTMLElement>('#model-indicators')!, document.querySelector<HTMLElement>('#scale-indicator')!,
     ], overlaySize);
     if (previousStyle === null) main.removeAttribute('style'); else main.setAttribute('style', previousStyle);
+    main.classList.remove('image-white-background');
     camera = originalCamera;
     indicators.update(); centreline.updateLabels(camera, canvas.clientWidth, canvas.clientHeight);
     return await result;
   } finally {
     if (previousStyle === null) main.removeAttribute('style'); else main.setAttribute('style', previousStyle);
+    main.classList.remove('image-white-background'); restorePrintTheme?.();
     camera = originalCamera; lighting.updateCamera(); exportRendering = false;
     if (rendered) { rendered.width = 0; rendered.height = 0; }
   }

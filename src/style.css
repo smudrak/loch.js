@@ -106,3 +106,11 @@ header.compact:not(.collapsed)~main #project-title{top:calc(34px + 1.4rem + 16px
 #image-size-dialog input[type=number]{width:120px;padding:6px;border:1px solid #678599;border-radius:4px;background:#09131c;color:inherit;font:inherit}
 #image-size-dialog label:has(input[type=checkbox]){justify-content:flex-start}
 .image-save-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+
+.image-white-background .overlay,.image-white-background #scale-indicator{color:#162531}
+.image-white-background #project-title,.image-white-background #legend,.image-white-background .orientation-indicators,.image-white-background #scale-indicator{background:transparent}
+.image-white-background .compass-north,.image-white-background .compass-needle-north{fill:#c02e2e!important}
+.image-white-background .compass-needle-south{fill:#52697c}
+.image-white-background .tilt-direction{stroke:#255a73}
+.image-white-background .tilt-tip{fill:#255a73}
+.image-white-background .scale-ruler{border-color:#162531;background:linear-gradient(to right,#162531 25%,#fff 25% 50%,#162531 50% 75%,#fff 75%)}
